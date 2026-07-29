@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Anket sonuclari sunucuda uretilir; repoya commit etmeyin
+data/results/*
+!data/results/.gitkeep
+*.log
+.DS_Store
+_cat_out.txt
