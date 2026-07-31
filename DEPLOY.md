@@ -38,6 +38,8 @@ Manuel kurulum isterseniz:
 ## Notlar
 
 - **Ucretsiz plan:** ~15 dk kullanilmazsa uyku moduna gecer; ilk tiklamada 30–60 sn acilabilir.
+- **Link her zaman acilsin:** Repodaki GitHub Action (`.github/workflows/keep-alive.yml`) her 10 dk `/health` pingler. GitHub → Actions sekmesinden workflow'un acik oldugunu dogrulayin.
+- Alternatif: [UptimeRobot](https://uptimerobot.com) ile ayni URL'yi 5–10 dk aralikla izleyin.
 - **Kalici veri (zorunlu):** Anket cevaplari Render PostgreSQL'de tutulur. Web servisinde `DATABASE_URL` **mutlaka** olmali.
 - **DATABASE_URL:** `human-ai-db` → Connections → **Internal Database URL** → `human-ai-survey` Environment.
 - Render'da `DATABASE_URL` yoksa anket cevaplari **gecici diske yazilmaz** (veri kaybi onlenir).
