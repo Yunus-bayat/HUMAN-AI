@@ -520,6 +520,38 @@ FONT_LINK = (
     "family=Space+Grotesk:wght@500;600;700&display=swap"
 )
 
+WAKE_SCRIPT = """
+<script>
+(function () {
+  var banner = document.createElement("div");
+  banner.id = "wake-banner";
+  banner.style.cssText = "display:none;position:fixed;inset:0;background:rgba(11,18,32,0.94);z-index:9999;align-items:center;justify-content:center;padding:2rem;text-align:center;color:#eef2ff;font-family:system-ui,sans-serif";
+  banner.innerHTML = "<div><h2 style=\\"margin:0 0 1rem\\">Anket sunucusu uyaniyor</h2><p style=\\"color:#94a3b8;max-width:440px;line-height:1.5\\">Ucretsiz planda 15 dk islem olmazsa uyku moduna gecer. Ilk acilis 30-60 sn surebilir; lutfen bekleyin.</p><p id=\\"wake-status\\" style=\\"margin-top:1rem;color:#22d3ee\\">Baglanti kontrol ediliyor...</p></div>";
+  document.body.appendChild(banner);
+  async function waitForService() {
+    for (var i = 0; i < 18; i++) {
+      try {
+        var res = await fetch("/health", { cache: "no-store" });
+        if (res.ok) {
+          var data = await res.json();
+          if (data.operational) {
+            banner.style.display = "none";
+            return;
+          }
+        }
+      } catch (e) {}
+      banner.style.display = "flex";
+      var status = document.getElementById("wake-status");
+      if (status) status.textContent = "Yeniden deneniyor... (" + (i + 1) + "/18)";
+      await new Promise(function (r) { setTimeout(r, 5000); });
+    }
+    location.reload();
+  }
+  waitForService();
+})();
+</script>
+"""
+
 HOME_HTML = """
 <!doctype html>
 <html lang="tr">
@@ -575,7 +607,8 @@ HOME_HTML = """
           <a class="btn secondary" href="{{ url_for('stats') }}">Sonuclari gor</a>
         </div>
       {% elif not storage_ready %}
-        <p class="notice">Anket gecici olarak kullanilamiyor. Veritabani baglantisi kurulamadi.</p>
+        <p class="notice">Sunucu veya veritabani uyaniyor. Lutfen 30-60 saniye bekleyin; sayfa otomatik yenilenecek.</p>
+        <meta http-equiv="refresh" content="8" />
       {% elif full_ready_count < questions_per_session %}
         <p class="notice">Anket su an hazir degil. Lutfen daha sonra tekrar deneyin.</p>
       {% else %}
@@ -589,6 +622,7 @@ HOME_HTML = """
 
     <footer class="page-footer">{{ privacy_footer }}</footer>
   </main>
+  {{ wake_script | safe }}
 </body>
 </html>
 """
@@ -653,6 +687,7 @@ SURVEY_HTML = """
     </div>
     <footer class="page-footer">{{ privacy_footer }}</footer>
   </main>
+  {{ wake_script | safe }}
 </body>
 </html>
 """
@@ -997,6 +1032,7 @@ def home():
         privacy_footer=PRIVACY_FOOTER,
         already_completed=participant_already_completed(),
         storage_ready=storage_operational(),
+        wake_script=WAKE_SCRIPT,
     )
 
 
@@ -1029,7 +1065,7 @@ def start():
     session.clear()
     session["response_id"] = response_id
     session.modified = True
-    return redirect(url_for("survey"))
+    return redirect(url_for("survey", response_id=response_id))
 
 
 @app.route("/survey", methods=["GET", "POST"])
@@ -1038,6 +1074,13 @@ def survey():
         return redirect(url_for("home"))
 
     response_id = get_response_id()
+    if response_id:
+        if session.get("response_id") != response_id:
+            session["response_id"] = response_id
+            session.modified = True
+        if request.method == "GET" and not request.args.get("response_id"):
+            return redirect(url_for("survey", response_id=response_id))
+
     state = survey_sessions.get(response_id)
     if not state or state.get("completed"):
         return redirect(url_for("home"))
@@ -1097,6 +1140,7 @@ def survey():
         progress_pct=progress_pct,
         submit_label=submit_label_for(index, total),
         response_id=response_id,
+        wake_script=WAKE_SCRIPT,
     )
 
 

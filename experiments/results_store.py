@@ -98,10 +98,27 @@ def _connection_url() -> str:
 
 @contextmanager
 def _pg_conn() -> Iterator[Any]:
+    import time
+
     import psycopg2
     from psycopg2.extras import RealDictCursor
 
-    conn = psycopg2.connect(_connection_url(), cursor_factory=RealDictCursor)
+    last_exc: Exception | None = None
+    for attempt in range(4):
+        try:
+            conn = psycopg2.connect(
+                _connection_url(),
+                cursor_factory=RealDictCursor,
+                connect_timeout=10,
+            )
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 3:
+                time.sleep(1.5 * (attempt + 1))
+    else:
+        raise last_exc  # type: ignore[misc]
+
     try:
         yield conn
         conn.commit()
