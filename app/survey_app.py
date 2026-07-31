@@ -26,6 +26,21 @@ from results_store import (  # noqa: E402
     storage_health,
     storage_operational,
 )
+
+_STORAGE_CHECK_CACHE: dict[str, float | bool] = {"at": 0.0, "ok": False}
+_STORAGE_CHECK_TTL = 30.0
+
+
+def cached_storage_operational() -> bool:
+    import time
+
+    now = time.time()
+    if now - float(_STORAGE_CHECK_CACHE["at"]) < _STORAGE_CHECK_TTL:
+        return bool(_STORAGE_CHECK_CACHE["ok"])
+    ok = storage_operational()
+    _STORAGE_CHECK_CACHE["at"] = now
+    _STORAGE_CHECK_CACHE["ok"] = ok
+    return ok
 from code_categories import (  # noqa: E402
     CATEGORIES,
     build_four_way_survey_prompt,
@@ -523,24 +538,28 @@ FONT_LINK = (
 WAKE_SCRIPT = """
 <script>
 (function () {
-  var banner = document.createElement("div");
-  banner.id = "wake-banner";
-  banner.style.cssText = "display:none;position:fixed;inset:0;background:rgba(11,18,32,0.94);z-index:9999;align-items:center;justify-content:center;padding:2rem;text-align:center;color:#eef2ff;font-family:system-ui,sans-serif";
-  banner.innerHTML = "<div><h2 style=\\"margin:0 0 1rem\\">Anket sunucusu uyaniyor</h2><p style=\\"color:#94a3b8;max-width:440px;line-height:1.5\\">Ucretsiz planda 15 dk islem olmazsa uyku moduna gecer. Ilk acilis 30-60 sn surebilir; lutfen bekleyin.</p><p id=\\"wake-status\\" style=\\"margin-top:1rem;color:#22d3ee\\">Baglanti kontrol ediliyor...</p></div>";
-  document.body.appendChild(banner);
+  async function isOperational() {
+    try {
+      var res = await fetch("/health", { cache: "no-store" });
+      if (!res.ok) return false;
+      var data = await res.json();
+      return !!data.operational;
+    } catch (e) {
+      return false;
+    }
+  }
   async function waitForService() {
+    if (await isOperational()) return;
+    var banner = document.createElement("div");
+    banner.id = "wake-banner";
+    banner.style.cssText = "display:flex;position:fixed;inset:0;background:rgba(11,18,32,0.94);z-index:9999;align-items:center;justify-content:center;padding:2rem;text-align:center;color:#eef2ff;font-family:system-ui,sans-serif";
+    banner.innerHTML = "<div><h2 style=\\"margin:0 0 1rem\\">Anket sunucusu uyaniyor</h2><p style=\\"color:#94a3b8;max-width:440px;line-height:1.5\\">Ilk acilis 30-60 sn surebilir; lutfen bekleyin.</p><p id=\\"wake-status\\" style=\\"margin-top:1rem;color:#22d3ee\\">Yeniden deneniyor...</p></div>";
+    document.body.appendChild(banner);
     for (var i = 0; i < 18; i++) {
-      try {
-        var res = await fetch("/health", { cache: "no-store" });
-        if (res.ok) {
-          var data = await res.json();
-          if (data.operational) {
-            banner.style.display = "none";
-            return;
-          }
-        }
-      } catch (e) {}
-      banner.style.display = "flex";
+      if (await isOperational()) {
+        banner.remove();
+        return;
+      }
       var status = document.getElementById("wake-status");
       if (status) status.textContent = "Yeniden deneniyor... (" + (i + 1) + "/18)";
       await new Promise(function (r) { setTimeout(r, 5000); });
@@ -1031,7 +1050,7 @@ def home():
         study_notes=STUDY_NOTES,
         privacy_footer=PRIVACY_FOOTER,
         already_completed=participant_already_completed(),
-        storage_ready=storage_operational(),
+        storage_ready=cached_storage_operational(),
         wake_script=WAKE_SCRIPT,
     )
 
@@ -1047,7 +1066,7 @@ def health():
 
 @app.post("/start")
 def start():
-    if not storage_operational():
+    if not cached_storage_operational():
         return redirect(url_for("home"))
     if participant_already_completed():
         return redirect(url_for("home"))
