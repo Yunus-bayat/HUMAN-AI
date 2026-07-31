@@ -171,7 +171,6 @@ def build_four_way_survey_prompt(item: dict) -> str:
     cid = item.get("category") or category_for(item["id"])
     meta = CATEGORIES[cid]
     topic = meta.get("topic", meta["label"].lower())
-    description = item.get("description", "Java kodu")
     return (
         f"Asagida LLM'ler (ChatGPT, Groq, Gemini) tarafindan duzenlenen "
         f"{topic} kodunun dort versiyonu yer almaktadir. "

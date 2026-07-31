@@ -10,11 +10,12 @@ import uuid
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from flask import Flask, make_response, redirect, render_template_string, request, session, url_for
+from flask import Flask, g, make_response, redirect, render_template_string, request, session, url_for
 
 load_dotenv()
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "app"))
 sys.path.insert(0, os.path.join(ROOT, "experiments"))
 from analyze_results import analyze, load_rows  # noqa: E402
 from results_store import (  # noqa: E402
@@ -46,6 +47,21 @@ from code_categories import (  # noqa: E402
     build_four_way_survey_prompt,
     category_for,
 )
+from survey_i18n import (  # noqa: E402
+    CATEGORY_TOPICS_EN,
+    DEFAULT_LANG,
+    SOURCE_LABELS,
+    build_survey_prompt,
+    localized_category_label,
+    localized_description,
+    normalize_lang,
+    privacy_footer,
+    study_notes,
+    study_steps,
+    submit_label,
+    ui_strings,
+    wake_script,
+)
 
 REFACTORED_PATH = os.path.join(ROOT, "data", "refactored", "refactored_dataset.json")
 SESSIONS_PATH = os.path.join(ROOT, "data", "results", "active_sessions.json")
@@ -54,12 +70,6 @@ COMPLETED_COOKIE = "ha_survey_completed"
 COMPLETED_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 PREFERRED_SOURCES = ("original", "chatgpt", "groq", "gemini")
-SOURCE_LABELS = {
-    "original": "Kaynak Kod",
-    "gemini": "Gemini",
-    "chatgpt": "ChatGPT",
-    "groq": "Groq",
-}
 OPTION_ORDER = ("original", "gemini", "chatgpt", "groq")
 QUESTIONS_PER_SESSION = 5
 
@@ -83,22 +93,25 @@ try:
 except Exception as exc:
     print(f"[HUMAN-AI] Depolama baslatilamadi ({storage_backend()}): {exc}", flush=True)
 
-STUDY_STEPS = [
-    ("1. Kod inceleme", "Size 5 farkli Java kodu ve gorevi sirayla aciklanir."),
-    ("2. Karsilastirma", "Her kod icin kaynak hali ile uc yapay zeka versiyonunu gorursunuz."),
-    ("3. Secim", "Her soruda en guvenilir buldugunuz versiyonu secersiniz."),
-]
 
-STUDY_NOTES = [
-    "Ad, e-posta veya kimlik bilgisi istenmez.",
-    "Yalnizca hangi versiyonu sectiginiz anonim olarak kaydedilir.",
-    "Dogru veya yanlis cevap yoktur; genel izleniminiz yeterlidir.",
-]
+@app.before_request
+def _resolve_lang():
+    query_lang = request.args.get("lang")
+    if query_lang:
+        g.lang = normalize_lang(query_lang)
+        session["lang"] = g.lang
+        session.modified = True
+    else:
+        g.lang = normalize_lang(session.get("lang"))
 
-PRIVACY_FOOTER = (
-    "Bu anket tamamen anonimdir. Kisisel bilginiz toplanmaz ve bireysel "
-    "yanitlariniz hicbir yerde aciklanmaz."
-)
+
+def current_lang() -> str:
+    return getattr(g, "lang", DEFAULT_LANG)
+
+
+def source_labels_for(lang: str | None = None) -> dict[str, str]:
+    lang = normalize_lang(lang or current_lang())
+    return SOURCE_LABELS[lang]
 
 
 BASE_CSS = """
@@ -526,6 +539,28 @@ ul.clean { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--muted); }
   background: linear-gradient(90deg, #22d3ee, #818cf8);
   transition: width 0.25s ease;
 }
+.lang-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+}
+.lang-bar > span { color: var(--muted); }
+.lang-bar a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.25rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.lang-bar a:hover { color: var(--ink); border-color: var(--line); }
+.lang-bar a.active {
+  color: var(--ink);
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.08);
+}
 """
 
 FONT_LINK = (
@@ -535,72 +570,40 @@ FONT_LINK = (
     "family=Space+Grotesk:wght@500;600;700&display=swap"
 )
 
-WAKE_SCRIPT = """
-<script>
-(function () {
-  async function isOperational() {
-    try {
-      var res = await fetch("/health", { cache: "no-store" });
-      if (!res.ok) return false;
-      var data = await res.json();
-      return !!data.operational;
-    } catch (e) {
-      return false;
-    }
-  }
-  async function waitForService() {
-    if (await isOperational()) return;
-    var banner = document.createElement("div");
-    banner.id = "wake-banner";
-    banner.style.cssText = "display:flex;position:fixed;inset:0;background:rgba(11,18,32,0.94);z-index:9999;align-items:center;justify-content:center;padding:2rem;text-align:center;color:#eef2ff;font-family:system-ui,sans-serif";
-    banner.innerHTML = "<div><h2 style=\\"margin:0 0 1rem\\">Anket sunucusu uyaniyor</h2><p style=\\"color:#94a3b8;max-width:440px;line-height:1.5\\">Ilk acilis 30-60 sn surebilir; lutfen bekleyin.</p><p id=\\"wake-status\\" style=\\"margin-top:1rem;color:#22d3ee\\">Yeniden deneniyor...</p></div>";
-    document.body.appendChild(banner);
-    for (var i = 0; i < 18; i++) {
-      if (await isOperational()) {
-        banner.remove();
-        return;
-      }
-      var status = document.getElementById("wake-status");
-      if (status) status.textContent = "Yeniden deneniyor... (" + (i + 1) + "/18)";
-      await new Promise(function (r) { setTimeout(r, 5000); });
-    }
-    location.reload();
-  }
-  waitForService();
-})();
-</script>
+LANG_SWITCHER = """
+<div class="lang-bar">
+  <span>{{ txt.lang_switch }}:</span>
+  <a href="{{ url_for('set_lang', lang_code='tr', next=request.full_path) }}" class="{{ 'active' if lang == 'tr' else '' }}">{{ txt.lang_tr }}</a>
+  <a href="{{ url_for('set_lang', lang_code='en', next=request.full_path) }}" class="{{ 'active' if lang == 'en' else '' }}">{{ txt.lang_en }}</a>
+</div>
 """
 
 HOME_HTML = """
 <!doctype html>
-<html lang="tr">
+<html lang="{{ txt.html_lang }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HUMAN-AI Anketi</title>
+  <title>{{ txt.home_title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="{{ font_link }}" rel="stylesheet">
   <style>{{ css }}</style>
 </head>
 <body>
   <main class="wrap">
+    {{ lang_switcher | safe }}
     <div class="privacy-banner">
       <span class="privacy-dot"></span>
-      Anonim anket · Kisisel bilgi istenmez · 5 soru · Yaklasik 10 dakika
+      {{ txt.privacy_banner }}
     </div>
     <div class="hero">
       <h1 class="brand">HUMAN-AI</h1>
-      <p class="subtitle">Yapay zeka ile duzenlenmis Java kodlarina guven arastirmasi</p>
-      <p class="lead">
-        Bu ankette size <strong>5 farkli Java kodu</strong> gosterilir. Her kod icin
-        <strong>kaynak hali</strong> ile <strong>ChatGPT</strong>, <strong>Groq</strong>
-        ve <strong>Gemini</strong> versiyonlarini karsilastirip en guvenilir buldugunuzu
-        secmeniz istenir.
-      </p>
+      <p class="subtitle">{{ txt.subtitle }}</p>
+      <p class="lead">{{ txt.lead | safe }}</p>
     </div>
 
     <div class="panel info-panel">
-      <h2>Nasil calisir?</h2>
+      <h2>{{ txt.how_it_works }}</h2>
       <div class="steps-row">
         {% for title, text in study_steps %}
           <div class="step-card">
@@ -618,28 +621,25 @@ HOME_HTML = """
 
     <div class="panel">
       {% if already_completed %}
-        <p class="anon-note" style="margin-top:0">
-          Bu ankete zaten katildiniz. Her katilimci yalnizca bir kez yanit verebilir;
-          tekrar katilim mumkun degildir.
-        </p>
+        <p class="anon-note" style="margin-top:0">{{ txt.already_completed }}</p>
         <div class="actions">
-          <a class="btn secondary" href="{{ url_for('stats') }}">Sonuclari gor</a>
+          <a class="btn secondary" href="{{ url_for('stats') }}">{{ txt.view_results }}</a>
         </div>
       {% elif not storage_ready %}
-        <p class="notice">Sunucu veya veritabani uyaniyor. Lutfen 30-60 saniye bekleyin; sayfa otomatik yenilenecek.</p>
+        <p class="notice">{{ txt.storage_not_ready }}</p>
         <meta http-equiv="refresh" content="8" />
       {% elif full_ready_count < questions_per_session %}
-        <p class="notice">Anket su an hazir degil. Lutfen daha sonra tekrar deneyin.</p>
+        <p class="notice">{{ txt.survey_not_ready }}</p>
       {% else %}
         <form method="post" action="{{ url_for('start') }}" class="actions">
-          <button type="submit">Ankete basla</button>
-          <a class="btn secondary" href="{{ url_for('stats') }}">Sonuclari gor</a>
+          <button type="submit">{{ txt.start_survey }}</button>
+          <a class="btn secondary" href="{{ url_for('stats') }}">{{ txt.view_results }}</a>
         </form>
-        <p class="cta-note">{{ questions_per_session }} soruluk anonim anket · Her katilimci bir kez yanit verebilir.</p>
+        <p class="cta-note">{{ cta_note }}</p>
       {% endif %}
     </div>
 
-    <footer class="page-footer">{{ privacy_footer }}</footer>
+    <footer class="page-footer">{{ privacy_footer_text }}</footer>
   </main>
   {{ wake_script | safe }}
 </body>
@@ -648,28 +648,29 @@ HOME_HTML = """
 
 SURVEY_HTML = """
 <!doctype html>
-<html lang="tr">
+<html lang="{{ txt.html_lang }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kod Secimi · HUMAN-AI</title>
+  <title>{{ txt.survey_title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="{{ font_link }}" rel="stylesheet">
   <style>{{ css }}</style>
 </head>
 <body>
   <main class="wrap">
+    {{ lang_switcher | safe }}
     <div class="privacy-banner">
       <span class="privacy-dot"></span>
-      Anonim anket · Kisisel bilgi istenmez
+      {{ txt.privacy_banner_short }}
     </div>
     <div class="survey-steps">
-      <span class="survey-step done">1. Bilgi</span>
-      <span class="survey-step active">2. Kod secimi</span>
-      <span class="survey-step">3. Tamamlandi</span>
+      <span class="survey-step done">{{ txt.step_info }}</span>
+      <span class="survey-step active">{{ txt.step_code }}</span>
+      <span class="survey-step">{{ txt.step_done }}</span>
     </div>
     <div class="progress-head">
-      <span>Soru {{ question_number }} / {{ total_questions }}</span>
+      <span>{{ txt.question_word }} {{ question_number }} / {{ total_questions }}</span>
       <span>{{ progress_pct }}%</span>
     </div>
     <div class="progress-track">
@@ -684,7 +685,7 @@ SURVEY_HTML = """
       <p class="lead">{{ current.prompt }}</p>
     </div>
     <div class="panel">
-      <h2>En guvenilir kod versiyonunu secin</h2>
+      <h2>{{ txt.choose_version }}</h2>
       <form method="post">
         <input type="hidden" name="response_id" value="{{ response_id }}" />
         <div class="grid">
@@ -693,7 +694,7 @@ SURVEY_HTML = """
             <input type="radio" name="choice" value="{{ option.key }}" required />
             <div class="option-head">
               <span class="badge {{ option.badge }}">{{ option.label }}</span>
-              <span class="pick-hint">Secmek icin tikla</span>
+              <span class="pick-hint">{{ txt.click_to_select }}</span>
             </div>
             <pre>{{ option.code }}</pre>
           </label>
@@ -704,7 +705,7 @@ SURVEY_HTML = """
         </div>
       </form>
     </div>
-    <footer class="page-footer">{{ privacy_footer }}</footer>
+    <footer class="page-footer">{{ privacy_footer_text }}</footer>
   </main>
   {{ wake_script | safe }}
 </body>
@@ -713,35 +714,32 @@ SURVEY_HTML = """
 
 THANKS_HTML = """
 <!doctype html>
-<html lang="tr">
+<html lang="{{ txt.html_lang }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tesekkurler · HUMAN-AI</title>
+  <title>{{ txt.thanks_title }}</title>
   <link href="{{ font_link }}" rel="stylesheet">
   <style>{{ css }}</style>
 </head>
 <body>
   <main class="wrap">
+    {{ lang_switcher | safe }}
     <div class="survey-steps">
-      <span class="survey-step done">1. Bilgi</span>
-      <span class="survey-step done">2. Kod secimi</span>
-      <span class="survey-step active">3. Tamamlandi</span>
+      <span class="survey-step done">{{ txt.step_info }}</span>
+      <span class="survey-step done">{{ txt.step_code }}</span>
+      <span class="survey-step active">{{ txt.step_done }}</span>
     </div>
-    <div class="hero"><h1 class="brand">Tesekkurler</h1></div>
+    <div class="hero"><h1 class="brand">{{ txt.thanks_heading }}</h1></div>
     <div class="panel">
       <div class="thanks-icon">&#10003;</div>
-      <p class="lead">Tum yanitlariniz basariyla kaydedildi.</p>
-      <p style="color:var(--muted);margin-top:0.5rem;line-height:1.6">
-        {{ total_questions }} sorunun tamamini tamamladiniz. Katkiniz icin tesekkur ederiz.
-        Secimleriniz tamamen anonimdir; adiniz veya kisisel bilginiz kaydedilmedi.
-        Bu cihazdan tekrar katilim mumkun degildir.
-      </p>
+      <p class="lead">{{ txt.thanks_saved }}</p>
+      <p style="color:var(--muted);margin-top:0.5rem;line-height:1.6">{{ thanks_body }}</p>
       <div class="actions">
-        <a class="btn secondary" href="{{ url_for('home') }}">Ana sayfa</a>
+        <a class="btn secondary" href="{{ url_for('home') }}">{{ txt.home_link }}</a>
       </div>
     </div>
-    <footer class="page-footer">{{ privacy_footer }}</footer>
+    <footer class="page-footer">{{ privacy_footer_text }}</footer>
   </main>
 </body>
 </html>
@@ -749,58 +747,56 @@ THANKS_HTML = """
 
 STATS_HTML = """
 <!doctype html>
-<html lang="tr">
+<html lang="{{ txt.html_lang }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HUMAN-AI Istatistik</title>
+  <title>{{ txt.stats_title }}</title>
   <link href="{{ font_link }}" rel="stylesheet">
   <style>{{ css }}</style>
 </head>
 <body>
   <main class="wrap">
+    {{ lang_switcher | safe }}
     <div class="hero">
-      <h1 class="brand">Anket Sonuclari</h1>
-      <p class="lead">Katilimcilarin hangi koda daha cok guvendigine dair anonim toplu istatistikler.</p>
+      <h1 class="brand">{{ txt.stats_heading }}</h1>
+      <p class="lead">{{ txt.stats_lead }}</p>
     </div>
     <div class="panel">
-      <p class="anon-note">
-        Bu sayfadaki tum veriler anonimdir. Bireysel katilimci kimligi, oturum bilgisi veya
-        secilen kod detayi gosterilmez — yalnizca genel tercih dagilimi paylasilir.
-      </p>
+      <p class="anon-note">{{ txt.stats_anon_note }}</p>
 
       {% if total == 0 %}
         <div class="empty-charts">
-          <p>Henuz kayitli anket cevabi yok.</p>
-          <p>Ilk katilimci cevap verdikten sonra grafikler burada gorunecek.</p>
+          <p>{{ txt.stats_empty_1 }}</p>
+          <p>{{ txt.stats_empty_2 }}</p>
         </div>
       {% else %}
         <div class="stats-grid">
-          <div class="stat-box"><span>Toplam yanit</span><strong>{{ total }}</strong></div>
-          <div class="stat-box"><span>Anonim katilim</span><strong>{{ participants }}</strong></div>
-          <div class="stat-box"><span>Kaynak koda guvenen</span><strong>{{ source_count }} ({{ source_pct }}%)</strong></div>
-          <div class="stat-box"><span>LLM'e guvenen</span><strong>{{ llm_count }} ({{ llm_pct }}%)</strong></div>
+          <div class="stat-box"><span>{{ txt.stat_total }}</span><strong>{{ total }}</strong></div>
+          <div class="stat-box"><span>{{ txt.stat_participants }}</span><strong>{{ participants }}</strong></div>
+          <div class="stat-box"><span>{{ txt.stat_source }}</span><strong>{{ source_count }} ({{ source_pct }}%)</strong></div>
+          <div class="stat-box"><span>{{ txt.stat_llm }}</span><strong>{{ llm_count }} ({{ llm_pct }}%)</strong></div>
         </div>
 
         {% if winner %}
           <p style="margin:0.5rem 0 0;color:var(--ink)">
-            <strong>En cok tercih edilen LLM:</strong> {{ winner }}
+            <strong>{{ txt.stat_winner }}</strong> {{ winner }}
           </p>
         {% endif %}
 
         <div class="charts-grid">
           <div class="chart-card">
-            <h2>Kaynak Kod vs LLM</h2>
-            <p class="chart-sub">Kim ham kaynak koda, kim yapay zekaya guvenmis?</p>
+            <h2>{{ txt.chart_source_vs_llm }}</h2>
+            <p class="chart-sub">{{ txt.chart_source_vs_llm_sub }}</p>
             <div class="chart-wrap"><canvas id="pieTrust"></canvas></div>
             <div class="legend-row">
-              <span class="legend-item"><span class="legend-dot" style="background:#64748b"></span>Kaynak Kod · {{ source_count }}</span>
-              <span class="legend-item"><span class="legend-dot" style="background:#818cf8"></span>LLM · {{ llm_count }}</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#64748b"></span>{{ txt.chart_source_label }} · {{ source_count }}</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#818cf8"></span>{{ txt.chart_llm_label }} · {{ llm_count }}</span>
             </div>
           </div>
           <div class="chart-card">
-            <h2>Secenek Karsilastirmasi</h2>
-            <p class="chart-sub">Kaynak Kod, Gemini, ChatGPT ve Groq tercih sayilari</p>
+            <h2>{{ txt.chart_comparison }}</h2>
+            <p class="chart-sub">{{ txt.chart_comparison_sub }}</p>
             <div class="chart-wrap"><canvas id="barAll"></canvas></div>
             <div class="legend-row">
               {% for label, count, pct in all_rows %}
@@ -815,9 +811,9 @@ STATS_HTML = """
       {% endif %}
 
       <div class="actions">
-        <a class="btn" href="{{ url_for('home') }}">Ana sayfa</a>
+        <a class="btn" href="{{ url_for('home') }}">{{ txt.home_link }}</a>
         <form method="post" action="{{ url_for('start') }}" style="display:inline">
-          <button type="submit" class="btn secondary">Ankete katil</button>
+          <button type="submit" class="btn secondary">{{ txt.join_survey }}</button>
         </form>
       </div>
     </div>
@@ -864,12 +860,13 @@ STATS_HTML = """
     });
 
     const barData = {{ bar_data | tojson }};
+    const barTooltipSuffix = {{ bar_tooltip_suffix | tojson }};
     new Chart(document.getElementById("barAll"), {
       type: "bar",
       data: {
         labels: barData.labels,
         datasets: [{
-          label: "Secim sayisi",
+          label: {{ bar_dataset_label | tojson }},
           data: barData.values,
           backgroundColor: barData.colors,
           borderRadius: 10,
@@ -886,7 +883,7 @@ STATS_HTML = """
               label(ctx) {
                 const total = barData.values.reduce((a, b) => a + b, 0);
                 const pct = total ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                return ` ${ctx.raw} secim (${pct}%)`;
+                return ` ${ctx.raw}${barTooltipSuffix} (${pct}%)`;
               },
             },
           },
@@ -969,7 +966,8 @@ BADGE_CLASS = {
 }
 
 
-def build_four_options(item):
+def build_four_options(item, lang: str | None = None):
+    labels = source_labels_for(lang)
     pool = {
         "original": source_code(item),
         "chatgpt": item["refactored"]["chatgpt"],
@@ -980,29 +978,56 @@ def build_four_options(item):
     for key in OPTION_ORDER:
         options.append({
             "key": key,
-            "label": SOURCE_LABELS[key],
+            "label": labels[key],
             "badge": BADGE_CLASS[key],
             "code": pool[key],
         })
     return options
 
 
+def question_prompt(item: dict, lang: str) -> str:
+    cid = item.get("category") or category_for(item["id"])
+    if lang == "en":
+        topic = CATEGORY_TOPICS_EN.get(cid, item.get("category_topic", ""))
+        return build_survey_prompt(topic, "en")
+    return build_four_way_survey_prompt(item)
+
+
+def build_question_view(item: dict, lang: str | None = None) -> dict:
+    lang = normalize_lang(lang or current_lang())
+    cid = item.get("category") or category_for(item["id"])
+    return {
+        "code_id": item["id"],
+        "description": localized_description(item, lang),
+        "category": cid,
+        "category_label": localized_category_label(
+            cid, item.get("category_label", ""), lang
+        ),
+        "category_topic": item.get("category_topic", ""),
+        "prompt": question_prompt(item, lang),
+        "has_injected_bug": bool(item.get("has_injected_bug")),
+        "bug_type": item.get("bug_type"),
+        "bug_id": item.get("bug_id"),
+        "options": build_four_options(item, lang),
+    }
+
+
 def ready_items_map() -> dict[str, dict]:
     return {item["id"]: item for item in load_ready_items()}
 
 
-def build_question_view(item: dict) -> dict:
+def page_context(**extra):
+    lang = current_lang()
+    txt = ui_strings(lang)
     return {
-        "code_id": item["id"],
-        "description": item["description"],
-        "category": item.get("category"),
-        "category_label": item.get("category_label", ""),
-        "category_topic": item.get("category_topic", ""),
-        "prompt": build_four_way_survey_prompt(item),
-        "has_injected_bug": bool(item.get("has_injected_bug")),
-        "bug_type": item.get("bug_type"),
-        "bug_id": item.get("bug_id"),
-        "options": build_four_options(item),
+        "lang": lang,
+        "txt": txt,
+        "css": BASE_CSS,
+        "font_link": FONT_LINK,
+        "lang_switcher": render_template_string(LANG_SWITCHER, lang=lang, txt=txt),
+        "privacy_footer_text": privacy_footer(lang),
+        "wake_script": wake_script(lang),
+        **extra,
     }
 
 
@@ -1014,7 +1039,7 @@ def get_response_id() -> str | None:
     )
 
 
-def load_active_question(state: dict) -> dict | None:
+def load_active_question(state: dict, lang: str | None = None) -> dict | None:
     question_ids = state.get("question_ids") or []
     index = int(state.get("index", 0))
     if index < 0 or index >= len(question_ids):
@@ -1022,7 +1047,7 @@ def load_active_question(state: dict) -> dict | None:
     item = ready_items_map().get(question_ids[index])
     if not item:
         return None
-    return build_question_view(item)
+    return build_question_view(item, lang)
 
 
 def progress_for(index: int, total: int = QUESTIONS_PER_SESSION) -> tuple[int, int]:
@@ -1031,27 +1056,33 @@ def progress_for(index: int, total: int = QUESTIONS_PER_SESSION) -> tuple[int, i
     return number, pct
 
 
-def submit_label_for(index: int, total: int = QUESTIONS_PER_SESSION) -> str:
-    if index >= total - 1:
-        return "Anketi tamamla"
-    return "Sonraki soru"
+@app.get("/lang/<lang_code>")
+def set_lang(lang_code: str):
+    lang = normalize_lang(lang_code)
+    session["lang"] = lang
+    session.modified = True
+    target = request.args.get("next", "")
+    if target.startswith("/"):
+        return redirect(target)
+    return redirect(url_for("home"))
 
 
 @app.get("/")
 def home():
     ready = load_ready_items()
+    lang = current_lang()
+    txt = ui_strings(lang)
     return render_template_string(
         HOME_HTML,
-        css=BASE_CSS,
-        font_link=FONT_LINK,
-        full_ready_count=len(ready),
-        questions_per_session=QUESTIONS_PER_SESSION,
-        study_steps=STUDY_STEPS,
-        study_notes=STUDY_NOTES,
-        privacy_footer=PRIVACY_FOOTER,
-        already_completed=participant_already_completed(),
-        storage_ready=cached_storage_operational(),
-        wake_script=WAKE_SCRIPT,
+        **page_context(
+            full_ready_count=len(ready),
+            questions_per_session=QUESTIONS_PER_SESSION,
+            study_steps=study_steps(lang),
+            study_notes=study_notes(lang),
+            cta_note=txt["cta_note"].format(n=QUESTIONS_PER_SESSION),
+            already_completed=participant_already_completed(),
+            storage_ready=cached_storage_operational(),
+        ),
     )
 
 
@@ -1081,8 +1112,11 @@ def start():
     picked = random.sample(ready, QUESTIONS_PER_SESSION)
     response_id = survey_sessions.create([item["id"] for item in picked])
 
+    saved_lang = session.get("lang")
     session.clear()
     session["response_id"] = response_id
+    if saved_lang:
+        session["lang"] = saved_lang
     session.modified = True
     return redirect(url_for("survey", response_id=response_id))
 
@@ -1106,16 +1140,20 @@ def survey():
 
     index = int(state.get("index", 0))
     total = int(state.get("total", QUESTIONS_PER_SESSION))
-    current = load_active_question(state)
+    lang = current_lang()
+    current = load_active_question(state, lang)
     if not current:
         return redirect(url_for("home"))
 
+    valid_choices = set(PREFERRED_SOURCES)
+
     if request.method == "POST":
         choice = request.form.get("choice")
-        if choice not in SOURCE_LABELS:
+        if choice not in valid_choices:
             return redirect(url_for("survey", response_id=response_id))
 
         question_number, _ = progress_for(index, total)
+        labels = source_labels_for(lang)
         answer = {
             "response_id": response_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1126,11 +1164,12 @@ def survey():
             "description": current["description"],
             "category": current.get("category"),
             "category_label": current.get("category_label"),
-            "choice_label": SOURCE_LABELS[choice],
+            "choice_label": labels[choice],
             "chosen_source": choice,
             "has_injected_bug": bool(current.get("has_injected_bug")),
             "bug_type": current.get("bug_type"),
             "bug_id": current.get("bug_id"),
+            "ui_lang": lang,
         }
         append_result(answer)
 
@@ -1149,17 +1188,15 @@ def survey():
     question_number, progress_pct = progress_for(index, total)
     return render_template_string(
         SURVEY_HTML,
-        css=BASE_CSS,
-        font_link=FONT_LINK,
-        current=current,
-        options=current["options"],
-        privacy_footer=PRIVACY_FOOTER,
-        question_number=question_number,
-        total_questions=total,
-        progress_pct=progress_pct,
-        submit_label=submit_label_for(index, total),
-        response_id=response_id,
-        wake_script=WAKE_SCRIPT,
+        **page_context(
+            current=current,
+            options=current["options"],
+            question_number=question_number,
+            total_questions=total,
+            progress_pct=progress_pct,
+            submit_label=submit_label(index, total, lang),
+            response_id=response_id,
+        ),
     )
 
 
@@ -1170,12 +1207,13 @@ def thanks():
     if not session.get("survey_completed") and not (state and state.get("completed")):
         return redirect(url_for("home"))
     total = int(session.get("total_questions") or (state or {}).get("total") or QUESTIONS_PER_SESSION)
+    lang = current_lang()
+    txt = ui_strings(lang)
     html = render_template_string(
         THANKS_HTML,
-        css=BASE_CSS,
-        font_link=FONT_LINK,
-        privacy_footer=PRIVACY_FOOTER,
-        total_questions=total,
+        **page_context(
+            thanks_body=txt["thanks_body"].format(n=total),
+        ),
     )
     response = make_response(html)
     return mark_participant_completed(response)
@@ -1197,7 +1235,10 @@ def load_public_results():
     return current if current else rows
 
 
-def build_stats_context():
+def build_stats_context(lang: str | None = None):
+    lang = normalize_lang(lang or current_lang())
+    txt = ui_strings(lang)
+    labels = source_labels_for(lang)
     rows = load_public_results()
     report = analyze(rows)
     total = report["total_choices"]
@@ -1217,19 +1258,19 @@ def build_stats_context():
     for key in OPTION_ORDER:
         count = counts[key]
         pct = round((count / total) * 100, 1) if total else 0.0
-        all_rows.append((SOURCE_LABELS[key], count, pct))
+        all_rows.append((labels[key], count, pct))
 
     winner = None
     if report["most_selected_llm"]:
-        winner = SOURCE_LABELS[report["most_selected_llm"]]
+        winner = labels[report["most_selected_llm"]]
 
     pie_data = {
-        "labels": ["Kaynak Kod", "LLM"],
+        "labels": [txt["chart_source_label"], txt["chart_llm_label"]],
         "values": [source_count, llm_count],
         "colors": [CHART_COLORS["original"], CHART_COLORS["llm"]],
     }
     bar_data = {
-        "labels": [SOURCE_LABELS[key] for key in OPTION_ORDER],
+        "labels": [labels[key] for key in OPTION_ORDER],
         "values": [counts[key] for key in OPTION_ORDER],
         "colors": [CHART_COLORS[key] for key in OPTION_ORDER],
     }
@@ -1246,6 +1287,8 @@ def build_stats_context():
         "pie_data": pie_data,
         "bar_data": bar_data,
         "chart_colors": [CHART_COLORS[key] for key in OPTION_ORDER],
+        "bar_dataset_label": txt["bar_dataset"],
+        "bar_tooltip_suffix": txt["bar_tooltip"],
     }
 
 
@@ -1253,9 +1296,7 @@ def build_stats_context():
 def stats():
     return render_template_string(
         STATS_HTML,
-        css=BASE_CSS,
-        font_link=FONT_LINK,
-        **build_stats_context(),
+        **page_context(**build_stats_context()),
     )
 
 
