@@ -23,6 +23,8 @@ from results_store import (  # noqa: E402
     append_result,
     ensure_schema,
     storage_backend,
+    storage_health,
+    storage_operational,
 )
 from code_categories import (  # noqa: E402
     CATEGORIES,
@@ -53,6 +55,16 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 try:
     ensure_schema()
+    health = storage_health()
+    print(
+        f"[HUMAN-AI] Depolama: {health['backend']} | "
+        f"Kalici: {health['persistent']} | "
+        f"Baglanti: {'OK' if health['database_connected'] else 'HATA'} | "
+        f"Kayit: {health['choices_count']} cevap, {health['participant_count']} katilimci",
+        flush=True,
+    )
+    if not health["operational"]:
+        print(f"[HUMAN-AI] UYARI: {health['database_error']}", flush=True)
 except Exception as exc:
     print(f"[HUMAN-AI] Depolama baslatilamadi ({storage_backend()}): {exc}", flush=True)
 
@@ -562,6 +574,8 @@ HOME_HTML = """
         <div class="actions">
           <a class="btn secondary" href="{{ url_for('stats') }}">Sonuclari gor</a>
         </div>
+      {% elif not storage_ready %}
+        <p class="notice">Anket gecici olarak kullanilamiyor. Veritabani baglantisi kurulamadi.</p>
       {% elif full_ready_count < questions_per_session %}
         <p class="notice">Anket su an hazir degil. Lutfen daha sonra tekrar deneyin.</p>
       {% else %}
@@ -982,11 +996,23 @@ def home():
         study_notes=STUDY_NOTES,
         privacy_footer=PRIVACY_FOOTER,
         already_completed=participant_already_completed(),
+        storage_ready=storage_operational(),
     )
+
+
+@app.get("/health")
+def health():
+    from flask import jsonify
+
+    data = storage_health()
+    status = 200 if data["operational"] else 503
+    return jsonify(data), status
 
 
 @app.post("/start")
 def start():
+    if not storage_operational():
+        return redirect(url_for("home"))
     if participant_already_completed():
         return redirect(url_for("home"))
 

@@ -34,6 +34,14 @@ CHOICE_COLUMNS = (
 )
 
 
+class StorageUnavailableError(RuntimeError):
+    """Kalici depolama kullanilamiyor."""
+
+
+def is_render_host() -> bool:
+    return os.getenv("RENDER") == "true"
+
+
 def database_url() -> str | None:
     url = (os.getenv("DATABASE_URL") or "").strip()
     return url or None
@@ -45,6 +53,35 @@ def use_postgres() -> bool:
 
 def storage_backend() -> str:
     return "postgres" if use_postgres() else "file"
+
+
+def assert_persistent_storage() -> None:
+    """Render'da gecici diske yazmayi engelle."""
+    if is_render_host() and not use_postgres():
+        raise StorageUnavailableError(
+            "Render ortaminda DATABASE_URL zorunludur. "
+            "Anket cevaplari gecici diske kaydedilmez."
+        )
+
+
+def verify_postgres_connection() -> tuple[bool, str | None]:
+    if not use_postgres():
+        return False, "DATABASE_URL ayarli degil"
+    try:
+        ensure_schema()
+        with _pg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+
+
+def storage_operational() -> bool:
+    if is_render_host():
+        ok, _ = verify_postgres_connection()
+        return ok
+    return True
 
 
 def _connection_url() -> str:
@@ -126,6 +163,7 @@ def ensure_schema() -> None:
 
 
 def append_result(row: dict[str, Any]) -> None:
+    assert_persistent_storage()
     if use_postgres():
         ensure_schema()
         from psycopg2.extras import Json
@@ -157,6 +195,8 @@ def append_result(row: dict[str, Any]) -> None:
 
 
 def load_rows() -> list[dict[str, Any]]:
+    if is_render_host() and not use_postgres():
+        return []
     if use_postgres():
         ensure_schema()
         with _pg_conn() as conn:
@@ -215,6 +255,7 @@ class SurveySessionStore:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     def create(self, question_ids: list[str]) -> str:
+        assert_persistent_storage()
         import uuid
 
         response_id = str(uuid.uuid4())
@@ -329,6 +370,7 @@ class CompletedParticipantStore:
         return token in self._load_file()
 
     def register(self, token: str) -> None:
+        assert_persistent_storage()
         if use_postgres():
             ensure_schema()
             with _pg_conn() as conn:
@@ -459,3 +501,23 @@ def fetch_recent_choices(limit: int = 10) -> list[dict[str, Any]]:
         }
         for r in reversed(trimmed)
     ]
+
+
+def storage_health() -> dict[str, Any]:
+    """Canli ortam saglik ozeti."""
+    stats = get_storage_stats()
+    if use_postgres():
+        connected, error = verify_postgres_connection()
+    else:
+        connected = not is_render_host()
+        error = "DATABASE_URL ayarli degil" if is_render_host() else None
+    return {
+        "operational": storage_operational(),
+        "backend": storage_backend(),
+        "persistent": use_postgres(),
+        "render_host": is_render_host(),
+        "database_connected": connected,
+        "database_error": error,
+        "choices_count": stats.get("choices_count", 0),
+        "participant_count": stats.get("participant_count", 0),
+    }
