@@ -9,11 +9,21 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
+from dotenv import load_dotenv
 from flask import Flask, make_response, redirect, render_template_string, request, session, url_for
+
+load_dotenv()
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "experiments"))
 from analyze_results import analyze, load_rows  # noqa: E402
+from results_store import (  # noqa: E402
+    CompletedParticipantStore,
+    SurveySessionStore,
+    append_result,
+    ensure_schema,
+    storage_backend,
+)
 from code_categories import (  # noqa: E402
     CATEGORIES,
     build_four_way_survey_prompt,
@@ -21,7 +31,6 @@ from code_categories import (  # noqa: E402
 )
 
 REFACTORED_PATH = os.path.join(ROOT, "data", "refactored", "refactored_dataset.json")
-RESULTS_PATH = os.path.join(ROOT, "data", "results", "choices.jsonl")
 SESSIONS_PATH = os.path.join(ROOT, "data", "results", "active_sessions.json")
 COMPLETED_TOKENS_PATH = os.path.join(ROOT, "data", "results", "completed_tokens.json")
 COMPLETED_COOKIE = "ha_survey_completed"
@@ -41,6 +50,11 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "human-ai-dev-secret")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+try:
+    ensure_schema()
+except Exception as exc:
+    print(f"[HUMAN-AI] Depolama baslatilamadi ({storage_backend()}): {exc}", flush=True)
 
 STUDY_STEPS = [
     ("1. Kod inceleme", "Size 5 farkli Java kodu ve gorevi sirayla aciklanir."),
@@ -855,108 +869,7 @@ def load_ready_items():
     return ready
 
 
-def append_result(row):
-    os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
-    with open(RESULTS_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-
-class SurveySessionStore:
-    """5 soruluk anket durumunu sunucu tarafinda tutar (cerez kaybi riskine karsi)."""
-
-    def __init__(self, path: str) -> None:
-        self.path = path
-
-    def _load(self) -> dict:
-        if not os.path.exists(self.path):
-            return {}
-        try:
-            with open(self.path, encoding="utf-8") as f:
-                data = json.load(f)
-            return data if isinstance(data, dict) else {}
-        except (json.JSONDecodeError, OSError):
-            return {}
-
-    def _save(self, data: dict) -> None:
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    def create(self, question_ids: list[str]) -> str:
-        data = self._load()
-        response_id = str(uuid.uuid4())
-        data[response_id] = {
-            "question_ids": question_ids,
-            "index": 0,
-            "total": len(question_ids),
-            "completed": False,
-        }
-        self._save(data)
-        return response_id
-
-    def get(self, response_id: str | None) -> dict | None:
-        if not response_id:
-            return None
-        return self._load().get(response_id)
-
-    def advance(self, response_id: str) -> dict | None:
-        data = self._load()
-        state = data.get(response_id)
-        if not state:
-            return None
-        state["index"] = int(state.get("index", 0)) + 1
-        if state["index"] >= int(state.get("total", QUESTIONS_PER_SESSION)):
-            state["completed"] = True
-        data[response_id] = state
-        self._save(data)
-        return state
-
-    def delete(self, response_id: str | None) -> None:
-        if not response_id:
-            return
-        data = self._load()
-        if response_id in data:
-            del data[response_id]
-            self._save(data)
-
-
 survey_sessions = SurveySessionStore(SESSIONS_PATH)
-
-
-class CompletedParticipantStore:
-    """Tamamlayan katilimcilari sunucu tarafinda isaretler."""
-
-    def __init__(self, path: str) -> None:
-        self.path = path
-
-    def _load(self) -> set[str]:
-        if not os.path.exists(self.path):
-            return set()
-        try:
-            with open(self.path, encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, list):
-                return {str(x) for x in data}
-        except (json.JSONDecodeError, OSError):
-            pass
-        return set()
-
-    def _save(self, tokens: set[str]) -> None:
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump(sorted(tokens), f, ensure_ascii=False, indent=2)
-
-    def has_token(self, token: str | None) -> bool:
-        if not token:
-            return False
-        return token in self._load()
-
-    def register(self, token: str) -> None:
-        tokens = self._load()
-        tokens.add(token)
-        self._save(tokens)
-
-
 completed_participants = CompletedParticipantStore(COMPLETED_TOKENS_PATH)
 
 

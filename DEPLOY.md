@@ -38,7 +38,9 @@ Manuel kurulum isterseniz:
 ## Notlar
 
 - **Ucretsiz plan:** ~15 dk kullanilmazsa uyku moduna gecer; ilk tiklamada 30–60 sn acilabilir.
-- **Sonuclar** sunucuda `data/results/` altinda tutulur; redeploy sonrasi silinebilir (ucretsiz disk gecici).
+- **Kalici veri:** Anket cevaplari icin Render PostgreSQL kullanin (`DATABASE_URL`).
+- **DATABASE_URL:** `human-ai-db` → Connections → **Internal Database URL** → web servisine Environment olarak ekleyin.
+- `DATABASE_URL` yoksa cevaplar gecici diskte tutulur; redeploy sonrasi silinebilir.
 - API key gerekmez (anket sadece onceden uretilmis refaktor verisini kullanir).
 
 ## Yerelde production testi

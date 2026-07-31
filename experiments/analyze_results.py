@@ -7,26 +7,11 @@ Answers:
 
 from __future__ import annotations
 
-import json
-import os
 from collections import Counter
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RESULTS_PATH = os.path.join(ROOT, "data", "results", "choices.jsonl")
+from results_store import load_rows
+
 LLM_NAMES = ("chatgpt", "groq", "gemini")
-
-
-def load_rows():
-    if not os.path.exists(RESULTS_PATH):
-        return []
-    rows = []
-    with open(RESULTS_PATH, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(json.loads(line))
-    return rows
 
 
 def analyze(rows):
