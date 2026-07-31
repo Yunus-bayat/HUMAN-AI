@@ -256,6 +256,7 @@ gunicorn wsgi:app --bind 127.0.0.1:5000
 python experiments/run_pipeline.py          # Dataset + hata enjeksiyonu
 python experiments/refactor_pipeline.py     # LLM refaktörü
 python experiments/check_refactor_status.py # Refaktör durumu
+python experiments/check_survey_results.py # Anket sonuçları / DB kontrolü
 python experiments/analyze_results.py       # Terminal analizi
 ```
 

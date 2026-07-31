@@ -363,3 +363,99 @@ class CompletedParticipantStore:
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(sorted(tokens), f, ensure_ascii=False, indent=2)
+
+
+def get_storage_stats() -> dict[str, Any]:
+    """Depolama ozeti: katilimci, cevap, baglanti durumu."""
+    stats: dict[str, Any] = {
+        "backend": storage_backend(),
+        "database_configured": use_postgres(),
+        "database_connected": False,
+        "database_error": None,
+        "choices_count": 0,
+        "participant_count": 0,
+        "completed_tokens": 0,
+        "active_sessions": 0,
+        "results_file": RESULTS_PATH,
+        "results_file_exists": os.path.exists(RESULTS_PATH),
+    }
+
+    if use_postgres():
+        try:
+            ensure_schema()
+            with _pg_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) AS n FROM survey_choices")
+                    stats["choices_count"] = int(cur.fetchone()["n"])
+                    cur.execute(
+                        """
+                        SELECT COUNT(DISTINCT COALESCE(response_id, participant_id)) AS n
+                        FROM survey_choices
+                        WHERE COALESCE(response_id, participant_id) IS NOT NULL
+                        """
+                    )
+                    stats["participant_count"] = int(cur.fetchone()["n"])
+                    cur.execute("SELECT COUNT(*) AS n FROM completed_participants")
+                    stats["completed_tokens"] = int(cur.fetchone()["n"])
+                    cur.execute("SELECT COUNT(*) AS n FROM survey_sessions")
+                    stats["active_sessions"] = int(cur.fetchone()["n"])
+            stats["database_connected"] = True
+        except Exception as exc:
+            stats["database_error"] = str(exc)
+        return stats
+
+    rows = load_rows()
+    stats["choices_count"] = len(rows)
+    stats["participant_count"] = len(
+        {
+            r.get("response_id") or r.get("participant_id")
+            for r in rows
+            if r.get("response_id") or r.get("participant_id")
+        }
+    )
+    store = CompletedParticipantStore()
+    stats["completed_tokens"] = len(store._load_file())
+    session_data = SurveySessionStore()._load_file()
+    stats["active_sessions"] = len(session_data)
+    return stats
+
+
+def fetch_recent_choices(limit: int = 10) -> list[dict[str, Any]]:
+    """Son kaydedilen cevaplari getir."""
+    if use_postgres():
+        ensure_schema()
+        with _pg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT response_id, participant_id, timestamp, question_number,
+                           code_id, chosen_source, choice_label, category_label
+                    FROM survey_choices
+                    ORDER BY id DESC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                rows = cur.fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            if item.get("timestamp") is not None:
+                item["timestamp"] = item["timestamp"].isoformat()
+            out.append(item)
+        return out
+
+    rows = load_rows()
+    trimmed = rows[-limit:] if limit else rows
+    return [
+        {
+            "response_id": r.get("response_id") or r.get("participant_id"),
+            "timestamp": r.get("timestamp"),
+            "question_number": r.get("question_number"),
+            "code_id": r.get("code_id"),
+            "chosen_source": r.get("chosen_source"),
+            "choice_label": r.get("choice_label"),
+            "category_label": r.get("category_label"),
+        }
+        for r in reversed(trimmed)
+    ]
