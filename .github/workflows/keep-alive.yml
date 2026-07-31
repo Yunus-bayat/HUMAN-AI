@@ -1,6 +1,8 @@
 # Render ucretsiz planda web servisi ~15 dk islem olmazsa uyur.
-# Bu workflow her 10 dakikada /health adresine istek atarak servisi uyanik tutar.
-# Boylece katilimcilar linke tikladiginda anket hemen acilir.
+# Bu workflow her 10 dakikada YALNIZCA /health adresine GET istegi atar.
+#
+# ONEMLI: Ankete girmez, /start veya /survey cagirmaz, cevap kaydetmez.
+# Sadece sunucunun uyanik kalmasini saglar.
 
 name: Keep survey awake
 
@@ -13,5 +15,9 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping HUMAN-AI survey health endpoint
-        run: curl -fsS --retry 3 --retry-delay 5 "https://human-ai-survey.onrender.com/health"
+      - name: Wake Render server (health check only, no survey)
+        run: |
+          echo "Ping: https://human-ai-survey.onrender.com/health"
+          curl -fsS --retry 3 --retry-delay 5 --request GET \
+            "https://human-ai-survey.onrender.com/health" \
+            | python -c "import sys,json; d=json.load(sys.stdin); print('operational:', d.get('operational'), '| cevap:', d.get('choices_count'))"
