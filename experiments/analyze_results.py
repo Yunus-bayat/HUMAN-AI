@@ -7,7 +7,14 @@ Answers:
 
 from __future__ import annotations
 
+import os
+import sys
 from collections import Counter
+
+from dotenv import load_dotenv
+
+load_dotenv()
+sys.path.insert(0, os.path.dirname(__file__))
 
 from results_store import load_rows
 
