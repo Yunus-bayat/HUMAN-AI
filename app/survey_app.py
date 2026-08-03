@@ -23,10 +23,12 @@ from results_store import (  # noqa: E402
     SurveySessionStore,
     append_result,
     ensure_schema,
+    fetch_choices_for_response,
     storage_backend,
     storage_health,
     storage_operational,
 )
+from bug_presence import choice_still_has_bug, summarize_buggy_choices  # noqa: E402
 
 _STORAGE_CHECK_CACHE: dict[str, float | bool] = {"at": 0.0, "ok": False}
 _STORAGE_CHECK_TTL = 30.0
@@ -52,6 +54,7 @@ from survey_i18n import (  # noqa: E402
     DEFAULT_LANG,
     SOURCE_LABELS,
     build_survey_prompt,
+    debrief_strings,
     localized_category_label,
     localized_description,
     normalize_lang,
@@ -399,6 +402,24 @@ ul.clean { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--muted); }
   font-size: 0.92rem;
 }
 .info-notes li + li { margin-top: 0.35rem; }
+.debrief-panel {
+  margin: 1.25rem 0 0;
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+  line-height: 1.65;
+  font-size: 0.92rem;
+}
+.debrief-panel h3 {
+  margin: 0 0 0.5rem;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 1.05rem;
+  color: #fef3c7;
+}
+.debrief-panel p { margin: 0 0 0.65rem; }
+.debrief-panel p:last-child { margin-bottom: 0; }
 .study-info {
   margin-bottom: 1rem;
   border: 1px solid rgba(34, 211, 238, 0.2);
@@ -741,6 +762,14 @@ THANKS_HTML = """
       <div class="thanks-icon">&#10003;</div>
       <p class="lead">{{ txt.thanks_saved }}</p>
       <p style="color:var(--muted);margin-top:0.5rem;line-height:1.6">{{ thanks_body }}</p>
+      {% if debrief.show %}
+      <div class="debrief-panel">
+        <h3>{{ debrief.title }}</h3>
+        {% for paragraph in debrief.paragraphs %}
+          <p>{{ paragraph }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="actions">
         <a class="btn secondary" href="{{ url_for('home') }}">{{ txt.home_link }}</a>
       </div>
@@ -1024,6 +1053,12 @@ def ready_items_map() -> dict[str, dict]:
     return {item["id"]: item for item in load_ready_items()}
 
 
+def build_debrief_context(response_id: str | None, lang: str) -> dict:
+    answers = fetch_choices_for_response(response_id)
+    summary = summarize_buggy_choices(answers, ready_items_map())
+    return debrief_strings(lang, summary)
+
+
 def page_context(**extra):
     lang = current_lang()
     txt = ui_strings(lang)
@@ -1162,6 +1197,8 @@ def survey():
 
         question_number, _ = progress_for(index, total)
         labels = source_labels_for(lang)
+        item = ready_items_map().get(current["code_id"], {})
+        chosen_had_bug = choice_still_has_bug(item, choice)
         answer = {
             "response_id": response_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1174,6 +1211,7 @@ def survey():
             "category_label": current.get("category_label"),
             "choice_label": labels[choice],
             "chosen_source": choice,
+            "chosen_had_bug": chosen_had_bug,
             "has_injected_bug": bool(current.get("has_injected_bug")),
             "bug_type": current.get("bug_type"),
             "bug_id": current.get("bug_id"),
@@ -1221,6 +1259,7 @@ def thanks():
         THANKS_HTML,
         **page_context(
             thanks_body=txt["thanks_body"].format(n=total),
+            debrief=build_debrief_context(response_id, lang),
         ),
     )
     response = make_response(html)

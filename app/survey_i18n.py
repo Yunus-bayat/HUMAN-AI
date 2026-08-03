@@ -140,6 +140,80 @@ def build_survey_prompt(topic: str, lang: str) -> str:
     )
 
 
+def debrief_strings(lang: str, summary: dict) -> dict:
+    """Post-survey debrief when participant picked buggy code versions."""
+    lang = normalize_lang(lang)
+    if not summary.get("show_debrief"):
+        return {"show": False, "title": "", "paragraphs": []}
+
+    n = summary["buggy_pick_count"]
+    llm_n = summary["llm_buggy_pick_count"]
+    src_n = summary["source_buggy_pick_count"]
+
+    if lang == "en":
+        title = "Research note: subtle errors in your selections"
+        paragraphs = [
+            (
+                f"In this study, {n} of your choices were versions that still contained "
+                "intentional subtle semantic errors. The dataset includes 20 such codes; "
+                "LLMs were given the flawed input and sometimes left similar mistakes in place."
+            ),
+            (
+                "This is exactly what blind trust in AI-refactored or unreviewed code can lead to: "
+                "code that looks clean and professional may still carry logic bugs. "
+                "Always verify behavior with tests or review — do not rely on surface appearance alone."
+            ),
+        ]
+        if llm_n and src_n:
+            paragraphs.insert(
+                1,
+                f"Among your selections: {llm_n} AI-generated version(s) and {src_n} source version(s) "
+                "likely preserved the injected flaw.",
+            )
+        elif llm_n:
+            paragraphs.insert(
+                1,
+                f"All {llm_n} of these were AI-generated (ChatGPT, Groq, Gemini, or Claude) versions.",
+            )
+        elif src_n:
+            paragraphs.insert(
+                1,
+                f"All {src_n} of these were labeled as source code in the survey.",
+            )
+        return {"show": True, "title": title, "paragraphs": paragraphs}
+
+    title = "Arastirma notu: secimlerinizdeki gizli hatalar"
+    paragraphs = [
+        (
+            f"Bu calismada {n} seciminiz, kasitli olarak enjekte edilmis ince mantik hatalarini "
+            "hala tasiyan versiyonlardi. Veri setindeki 52 kodun 20'sinde boyle hatalar vardir; "
+            "yapay zekalar hatali girdiyi almis ve bazen benzer hatalari duzeltmeden birakmistir."
+        ),
+        (
+            "LLM'lere kor korune guvenmenin veya kodu satir satir incelemeden kabul etmenin "
+            "riski tam olarak budur: duzenli ve okunakli gorunen kod yine de mantik hatasi "
+            "tasiyabilir. Guvenmeden once test veya inceleme sarttir."
+        ),
+    ]
+    if llm_n and src_n:
+        paragraphs.insert(
+            1,
+            f"Secimlerinizden {llm_n} tanesi yapay zeka (ChatGPT, Groq, Gemini veya Claude), "
+            f"{src_n} tanesi kaynak kod etiketli versiyondu.",
+        )
+    elif llm_n:
+        paragraphs.insert(
+            1,
+            f"Bunlarin tamami ({llm_n}) yapay zeka tarafindan uretilmis versiyonlardi.",
+        )
+    elif src_n:
+        paragraphs.insert(
+            1,
+            f"Bunlarin tamami ({src_n}) ankette kaynak kod olarak sunulan versiyonlardi.",
+        )
+    return {"show": True, "title": title, "paragraphs": paragraphs}
+
+
 def study_steps(lang: str) -> list[tuple[str, str]]:
     if lang == "en":
         return [

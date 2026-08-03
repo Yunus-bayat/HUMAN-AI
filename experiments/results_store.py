@@ -520,6 +520,12 @@ def fetch_recent_choices(limit: int = 10) -> list[dict[str, Any]]:
     ]
 
 
+def fetch_choices_for_response(response_id: str | None) -> list[dict[str, Any]]:
+    if not response_id:
+        return []
+    return [r for r in load_rows() if r.get("response_id") == response_id]
+
+
 def storage_health() -> dict[str, Any]:
     """Canli ortam saglik ozeti."""
     stats = get_storage_stats()
