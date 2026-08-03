@@ -773,9 +773,9 @@ THANKS_HTML = """
       <div class="debrief-panel">
         <h3>{{ debrief.title }}</h3>
         <p>{{ debrief.intro }}</p>
-        {% if debrief.items %}
+        {% if debrief['items'] %}
         <ul class="debrief-list">
-          {% for item in debrief.items %}
+          {% for item in debrief['items'] %}
             <li>{{ item }}</li>
           {% endfor %}
         </ul>
