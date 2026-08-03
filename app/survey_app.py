@@ -222,11 +222,12 @@ h2 {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1rem;
 }
-@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
 .option-card {
   position: relative;
   border: 2px solid var(--line);
@@ -690,6 +691,7 @@ SURVEY_HTML = """
     </div>
     <div class="panel">
       <h2>{{ txt.choose_version }}</h2>
+      <p class="cta-note" style="margin-top:0">{{ txt.option_count_hint }}</p>
       <form method="post">
         <input type="hidden" name="response_id" value="{{ response_id }}" />
         <div class="grid">
