@@ -141,77 +141,95 @@ def build_survey_prompt(topic: str, lang: str) -> str:
 
 
 def debrief_strings(lang: str, summary: dict) -> dict:
-    """Post-survey debrief when participant picked buggy code versions."""
+    """Personal post-survey debrief for the participant's 5 questions."""
     lang = normalize_lang(lang)
     if not summary.get("show_debrief"):
-        return {"show": False, "title": "", "paragraphs": []}
+        return {"show": False, "title": "", "intro": "", "items": [], "footer": ""}
 
-    n = summary["buggy_pick_count"]
-    llm_n = summary["llm_buggy_pick_count"]
-    src_n = summary["source_buggy_pick_count"]
+    total = summary["total_questions"]
+    buggy_n = summary["buggy_question_count"]
+    picked_n = summary["user_picked_buggy_count"]
+    questions = summary.get("buggy_questions") or []
 
     if lang == "en":
-        title = "Research note: subtle errors in your selections"
-        paragraphs = [
-            (
-                f"In this study, {n} of your choices were versions that still contained "
-                "intentional subtle semantic errors. The dataset includes 20 such codes; "
-                "LLMs were given the flawed input and sometimes left similar mistakes in place."
-            ),
-            (
-                "This is exactly what blind trust in AI-refactored or unreviewed code can lead to: "
-                "code that looks clean and professional may still carry logic bugs. "
-                "Always verify behavior with tests or review — do not rely on surface appearance alone."
-            ),
-        ]
-        if llm_n and src_n:
-            paragraphs.insert(
-                1,
-                f"Among your selections: {llm_n} AI-generated version(s) and {src_n} source version(s) "
-                "likely preserved the injected flaw.",
+        title = "Your session summary"
+        if buggy_n == 0:
+            intro = (
+                f"Among the {total} questions you answered, none contained a "
+                "hidden logic error."
             )
-        elif llm_n:
-            paragraphs.insert(
-                1,
-                f"All {llm_n} of these were AI-generated (ChatGPT, Groq, Gemini, or Claude) versions.",
+            footer = ""
+        else:
+            intro = (
+                f"Among the {total} questions you answered, {buggy_n} contained a "
+                "hidden logic error:"
             )
-        elif src_n:
-            paragraphs.insert(
-                1,
-                f"All {src_n} of these were labeled as source code in the survey.",
-            )
-        return {"show": True, "title": title, "paragraphs": paragraphs}
+            items = []
+            for q in questions:
+                num = q["question_number"]
+                desc = q["description"]
+                label = q["choice_label"]
+                if q["user_picked_buggy"]:
+                    items.append(
+                        f"Question {num} ({desc}): you selected {label} — "
+                        "this version likely still had the error."
+                    )
+                else:
+                    items.append(
+                        f"Question {num} ({desc}): you selected {label} — "
+                        "this version likely did not carry the error."
+                    )
+            if picked_n > 0:
+                footer = (
+                    f"You chose a version that likely still had the error in "
+                    f"{picked_n} of these {buggy_n} question(s). "
+                    "Blind trust in AI-generated or unreviewed code can hide subtle bugs — "
+                    "always verify with tests or careful review."
+                )
+            else:
+                footer = (
+                    "You did not select a version that likely still had the error. "
+                    "Still, always verify code with tests — looks can be misleading."
+                )
+            return {"show": True, "title": title, "intro": intro, "items": items, "footer": footer}
 
-    title = "Arastirma notu: secimlerinizdeki gizli hatalar"
-    paragraphs = [
-        (
-            f"Bu calismada {n} seciminiz, kasitli olarak enjekte edilmis ince mantik hatalarini "
-            "hala tasiyan versiyonlardi. Veri setindeki 52 kodun 20'sinde boyle hatalar vardir; "
-            "yapay zekalar hatali girdiyi almis ve bazen benzer hatalari duzeltmeden birakmistir."
-        ),
-        (
-            "LLM'lere kor korune guvenmenin veya kodu satir satir incelemeden kabul etmenin "
-            "riski tam olarak budur: duzenli ve okunakli gorunen kod yine de mantik hatasi "
-            "tasiyabilir. Guvenmeden once test veya inceleme sarttir."
-        ),
-    ]
-    if llm_n and src_n:
-        paragraphs.insert(
-            1,
-            f"Secimlerinizden {llm_n} tanesi yapay zeka (ChatGPT, Groq, Gemini veya Claude), "
-            f"{src_n} tanesi kaynak kod etiketli versiyondu.",
-        )
-    elif llm_n:
-        paragraphs.insert(
-            1,
-            f"Bunlarin tamami ({llm_n}) yapay zeka tarafindan uretilmis versiyonlardi.",
-        )
-    elif src_n:
-        paragraphs.insert(
-            1,
-            f"Bunlarin tamami ({src_n}) ankette kaynak kod olarak sunulan versiyonlardi.",
-        )
-    return {"show": True, "title": title, "paragraphs": paragraphs}
+        return {"show": True, "title": title, "intro": intro, "items": [], "footer": footer}
+
+    title = "Oturum ozetiniz"
+    if buggy_n == 0:
+        intro = f"Cevapladiginiz {total} sorunun hicbirinde gizli mantik hatasi yoktu."
+        footer = ""
+    else:
+        intro = f"Cevapladiginiz {total} sorudan {buggy_n} tanesinde gizli mantik hatasi vardi:"
+        items = []
+        for q in questions:
+            num = q["question_number"]
+            desc = q["description"]
+            label = q["choice_label"]
+            if q["user_picked_buggy"]:
+                items.append(
+                    f"Soru {num} ({desc}): {label} sectiniz — "
+                    "bu versiyonda hata buyuk olasilikla korunmustu."
+                )
+            else:
+                items.append(
+                    f"Soru {num} ({desc}): {label} sectiniz — "
+                    "bu versiyonda hata buyuk olasilikla tasimiyordu."
+                )
+        if picked_n > 0:
+            footer = (
+                f"Bu {buggy_n} sorudan {picked_n} tanesinde hatayi tasiyan versiyonu sectiniz. "
+                "Yapay zekaya veya incelenmemis koda körü körüne güvenmek tam da bu riski dogurur — "
+                "kodu mutlaka test veya dikkatli inceleme ile dogrulayin."
+            )
+        else:
+            footer = (
+                "Hata tasiyan versiyonu secmediniz. Yine de kodu test etmeden "
+                "yalnizca gorunume guvenmeyin."
+            )
+        return {"show": True, "title": title, "intro": intro, "items": items, "footer": footer}
+
+    return {"show": True, "title": title, "intro": intro, "items": [], "footer": footer}
 
 
 def study_steps(lang: str) -> list[tuple[str, str]]:

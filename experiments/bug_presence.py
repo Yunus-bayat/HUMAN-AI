@@ -66,36 +66,47 @@ def choice_still_has_bug(item: dict[str, Any], choice_key: str) -> bool:
     return any(marker in chosen for marker in markers)
 
 
-def summarize_buggy_choices(
+def summarize_session_debrief(
     answers: list[dict[str, Any]], items_by_id: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
-    """Aggregate buggy picks for post-survey debrief."""
-    picks: list[dict[str, Any]] = []
-    for row in answers:
+    """Personal debrief for the participant's 5 survey questions."""
+    sorted_answers = sorted(answers, key=lambda r: int(r.get("question_number") or 0))
+    buggy_questions: list[dict[str, Any]] = []
+
+    for row in sorted_answers:
         code_id = row.get("code_id")
-        choice = row.get("chosen_source")
-        if not code_id or not choice:
+        if not code_id:
             continue
         item = items_by_id.get(code_id)
         if not item or not item.get("has_injected_bug"):
             continue
+
+        choice = row.get("chosen_source") or ""
         had_bug = row.get("chosen_had_bug")
         if had_bug is None:
             had_bug = choice_still_has_bug(item, choice)
-        if not had_bug:
-            continue
-        picks.append({
-            "code_id": code_id,
+
+        buggy_questions.append({
+            "question_number": int(row.get("question_number") or 0),
+            "description": row.get("description") or item.get("description") or code_id,
+            "choice_label": row.get("choice_label") or choice,
             "chosen_source": choice,
-            "question_number": row.get("question_number"),
+            "user_picked_buggy": bool(had_bug),
         })
 
-    llm_picks = [p for p in picks if p["chosen_source"] != "original"]
-    source_picks = [p for p in picks if p["chosen_source"] == "original"]
     return {
-        "buggy_pick_count": len(picks),
-        "llm_buggy_pick_count": len(llm_picks),
-        "source_buggy_pick_count": len(source_picks),
-        "picks": picks,
-        "show_debrief": len(picks) > 0,
+        "total_questions": len(sorted_answers),
+        "buggy_question_count": len(buggy_questions),
+        "buggy_questions": buggy_questions,
+        "user_picked_buggy_count": sum(
+            1 for q in buggy_questions if q["user_picked_buggy"]
+        ),
+        "show_debrief": len(sorted_answers) > 0,
     }
+
+
+def summarize_buggy_choices(
+    answers: list[dict[str, Any]], items_by_id: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """Backward-compatible alias."""
+    return summarize_session_debrief(answers, items_by_id)

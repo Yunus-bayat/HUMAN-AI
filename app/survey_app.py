@@ -28,7 +28,7 @@ from results_store import (  # noqa: E402
     storage_health,
     storage_operational,
 )
-from bug_presence import choice_still_has_bug, summarize_buggy_choices  # noqa: E402
+from bug_presence import choice_still_has_bug, summarize_session_debrief  # noqa: E402
 
 _STORAGE_CHECK_CACHE: dict[str, float | bool] = {"at": 0.0, "ok": False}
 _STORAGE_CHECK_TTL = 30.0
@@ -420,6 +420,13 @@ ul.clean { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--muted); }
 }
 .debrief-panel p { margin: 0 0 0.65rem; }
 .debrief-panel p:last-child { margin-bottom: 0; }
+.debrief-list {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.1rem;
+  color: #fef9c3;
+}
+.debrief-list li { margin-bottom: 0.45rem; line-height: 1.55; }
+.debrief-list li:last-child { margin-bottom: 0; }
 .study-info {
   margin-bottom: 1rem;
   border: 1px solid rgba(34, 211, 238, 0.2);
@@ -765,9 +772,17 @@ THANKS_HTML = """
       {% if debrief.show %}
       <div class="debrief-panel">
         <h3>{{ debrief.title }}</h3>
-        {% for paragraph in debrief.paragraphs %}
-          <p>{{ paragraph }}</p>
-        {% endfor %}
+        <p>{{ debrief.intro }}</p>
+        {% if debrief.items %}
+        <ul class="debrief-list">
+          {% for item in debrief.items %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if debrief.footer %}
+          <p>{{ debrief.footer }}</p>
+        {% endif %}
       </div>
       {% endif %}
       <div class="actions">
@@ -1055,7 +1070,7 @@ def ready_items_map() -> dict[str, dict]:
 
 def build_debrief_context(response_id: str | None, lang: str) -> dict:
     answers = fetch_choices_for_response(response_id)
-    summary = summarize_buggy_choices(answers, ready_items_map())
+    summary = summarize_session_debrief(answers, ready_items_map())
     return debrief_strings(lang, summary)
 
 
