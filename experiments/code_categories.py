@@ -172,8 +172,8 @@ def build_four_way_survey_prompt(item: dict) -> str:
     meta = CATEGORIES[cid]
     topic = meta.get("topic", meta["label"].lower())
     return (
-        f"Asagida LLM'ler (ChatGPT, Groq, Gemini) tarafindan duzenlenen "
-        f"{topic} kodunun dort versiyonu yer almaktadir. "
+        f"Asagida LLM'ler (ChatGPT, Groq, Gemini, Claude) tarafindan duzenlenen "
+        f"{topic} kodunun bes versiyonu yer almaktadir. "
         f"Lutfen size en guvenilir geleni seciniz."
     )
 

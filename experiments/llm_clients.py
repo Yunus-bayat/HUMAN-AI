@@ -1,4 +1,4 @@
-"""Shared LLM client helpers for Groq, Gemini, and ChatGPT."""
+"""Shared LLM client helpers for Groq, Gemini, ChatGPT, and Claude."""
 
 from __future__ import annotations
 
@@ -17,6 +17,12 @@ from study_prompts import (
 )
 
 load_dotenv()
+
+# Haiku 4.5: en ucuz Claude tier, kod refaktoru icin yeterli kalite (~$1/$5 per 1M tokens).
+# 3.5 modelleri API'den kaldirildi (2026-02).
+CLAUDE_REFACTOR_MODEL = "claude-haiku-4-5-20251001"
+# Dataset'teki Java parcalari kisa; uzun cevaplari sinirlayarak gereksiz output token harcamasini onler.
+CLAUDE_REFACTOR_MAX_TOKENS = 2048
 
 
 def _clean_code(text: str) -> str:
@@ -37,6 +43,10 @@ def get_groq_key():
 
 def get_gemini_key():
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+
+def get_claude_key():
+    return os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
 
 
 def refactor_with_chatgpt(code: str, model: str = "gpt-4o-mini") -> str:
@@ -79,8 +89,35 @@ def refactor_with_gemini(code: str, model: str = "gemini-flash-lite-latest") -> 
     return _clean_code(getattr(response, "text", "") or "")
 
 
+def refactor_with_claude(
+    code: str,
+    model: str = CLAUDE_REFACTOR_MODEL,
+    max_tokens: int = CLAUDE_REFACTOR_MAX_TOKENS,
+) -> str:
+    api_key = get_claude_key()
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY / CLAUDE_API_KEY bulunamadi")
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=STUDY_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": build_refactor_user_prompt(code)}],
+        temperature=0.2,
+    )
+    parts = []
+    for block in response.content:
+        text = getattr(block, "text", None)
+        if text:
+            parts.append(text)
+    return _clean_code("".join(parts))
+
+
 PROVIDERS = {
     "chatgpt": refactor_with_chatgpt,
     "groq": refactor_with_groq,
     "gemini": refactor_with_gemini,
+    "claude": refactor_with_claude,
 }

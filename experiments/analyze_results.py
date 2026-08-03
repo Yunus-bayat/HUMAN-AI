@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from results_store import load_rows
 
-LLM_NAMES = ("chatgpt", "groq", "gemini")
+LLM_NAMES = ("chatgpt", "groq", "gemini", "claude")
 
 
 def analyze(rows):

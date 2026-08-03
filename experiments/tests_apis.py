@@ -84,8 +84,33 @@ def test_groq() -> bool:
         return False
 
 
+def test_claude() -> bool:
+    print("\nAnthropic Claude test ediliyor...")
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+        print(f"  Key: {_mask(api_key)}")
+        if not api_key:
+            print("ANTHROPIC_API_KEY / CLAUDE_API_KEY bulunamadi!")
+            return False
+
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=5,
+            messages=[{"role": "user", "content": "Say hello in one word."}],
+        )
+        text = response.content[0].text.strip()
+        print(f"Claude basarili! Yanit: {text}")
+        return True
+    except Exception as exc:  # noqa: BLE001
+        print(f"Claude hatasi: {exc}")
+        return False
+
+
 if __name__ == "__main__":
     print("API baglanti testleri baslatiliyor...\n" + "-" * 40)
-    results = [test_openai(), test_gemini(), test_groq()]
+    results = [test_openai(), test_gemini(), test_groq(), test_claude()]
     print("-" * 40)
-    print(f"Tamamlanan basarili test: {sum(results)}/3")
+    print(f"Tamamlanan basarili test: {sum(results)}/4")

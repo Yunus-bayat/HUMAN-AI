@@ -12,7 +12,7 @@ from code_categories import summarize_categories
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW_PATH = os.path.join(ROOT, "data", "raw_repos", "selected_dataset.json")
 REF_PATH = os.path.join(ROOT, "data", "refactored", "refactored_dataset.json")
-PROVIDERS = ("chatgpt", "groq", "gemini")
+PROVIDERS = ("chatgpt", "groq", "gemini", "claude")
 
 
 def is_full_ready(item: dict) -> bool:
@@ -45,7 +45,7 @@ def main() -> None:
     print("-" * 40)
     print(f"Dataset: {len(raw)} kod")
     print(f"Refactored dosyasi: {len(ref)} kayit")
-    print(f"Tam hazir (4 secenek): {len(full)}/{len(raw)}")
+    print(f"Tam hazir (5 secenek): {len(full)}/{len(raw)}")
     print(f"Eksik kayit: {len(missing_ids)}")
     print(f"Kismi kayit: {len(partial_ids)}")
     for name in PROVIDERS:

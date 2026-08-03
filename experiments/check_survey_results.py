@@ -30,6 +30,7 @@ SOURCE_LABELS = {
     "gemini": "Gemini",
     "chatgpt": "ChatGPT",
     "groq": "Groq",
+    "claude": "Claude",
 }
 
 

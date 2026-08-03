@@ -69,8 +69,10 @@ COMPLETED_TOKENS_PATH = os.path.join(ROOT, "data", "results", "completed_tokens.
 COMPLETED_COOKIE = "ha_survey_completed"
 COMPLETED_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-PREFERRED_SOURCES = ("original", "chatgpt", "groq", "gemini")
-OPTION_ORDER = ("original", "gemini", "chatgpt", "groq")
+PREFERRED_SOURCES = ("original", "chatgpt", "groq", "gemini", "claude")
+OPTION_ORDER = ("original", "gemini", "chatgpt", "groq", "claude")
+SURVEY_MODE = "five_way"
+LLM_REFACTOR_NAMES = ("chatgpt", "groq", "gemini", "claude")
 QUESTIONS_PER_SESSION = 5
 
 app = Flask(__name__)
@@ -130,6 +132,7 @@ BASE_CSS = """
   --gemini: #4285f4;
   --chatgpt: #10a37f;
   --groq: #f97316;
+  --claude: #d97757;
 }
 * { box-sizing: border-box; }
 body {
@@ -258,6 +261,7 @@ h2 {
 .badge.gemini { background: var(--gemini); }
 .badge.chatgpt { background: var(--chatgpt); }
 .badge.groq { background: var(--groq); }
+.badge.claude { background: var(--claude); }
 .pick-hint { font-size: 0.75rem; color: var(--muted); }
 pre {
   margin: 0;
@@ -916,7 +920,7 @@ def is_full_ready(item) -> bool:
     ref = item.get("refactored", {}) or {}
     if not source_code(item):
         return False
-    return all(ref.get(name) for name in ("chatgpt", "groq", "gemini"))
+    return all(ref.get(name) for name in LLM_REFACTOR_NAMES)
 
 
 def load_ready_items():
@@ -963,6 +967,7 @@ BADGE_CLASS = {
     "gemini": "gemini",
     "chatgpt": "chatgpt",
     "groq": "groq",
+    "claude": "claude",
 }
 
 
@@ -973,6 +978,7 @@ def build_four_options(item, lang: str | None = None):
         "chatgpt": item["refactored"]["chatgpt"],
         "groq": item["refactored"]["groq"],
         "gemini": item["refactored"]["gemini"],
+        "claude": item["refactored"]["claude"],
     }
     options = []
     for key in OPTION_ORDER:
@@ -1157,7 +1163,7 @@ def survey():
         answer = {
             "response_id": response_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "survey_mode": "four_way",
+            "survey_mode": SURVEY_MODE,
             "session_questions": total,
             "question_number": question_number,
             "code_id": current["code_id"],
@@ -1224,14 +1230,15 @@ CHART_COLORS = {
     "gemini": "#4285f4",
     "chatgpt": "#10a37f",
     "groq": "#f97316",
+    "claude": "#d97757",
     "llm": "#818cf8",
 }
 
 
 def load_public_results():
-    """Yalnizca guncel anket formatindaki anonim yanitlar."""
+    """Guncel anket formatindaki anonim yanitlar (5-way; eski 4-way dahil)."""
     rows = load_rows()
-    current = [r for r in rows if r.get("survey_mode") == "four_way"]
+    current = [r for r in rows if r.get("survey_mode") in ("five_way", "four_way")]
     return current if current else rows
 
 

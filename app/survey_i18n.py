@@ -96,12 +96,14 @@ SOURCE_LABELS = {
         "gemini": "Gemini",
         "chatgpt": "ChatGPT",
         "groq": "Groq",
+        "claude": "Claude",
     },
     "en": {
         "original": "Source Code",
         "gemini": "Gemini",
         "chatgpt": "ChatGPT",
         "groq": "Groq",
+        "claude": "Claude",
     },
 }
 
@@ -127,12 +129,13 @@ def localized_category_label(category_id: str, fallback: str, lang: str) -> str:
 def build_survey_prompt(topic: str, lang: str) -> str:
     if lang == "en":
         return (
-            f"Below are four versions of {topic} code edited by LLMs "
-            f"(ChatGPT, Groq, Gemini). Please select the one you find most trustworthy."
+            f"Below are five versions of {topic} code: the source plus four "
+            f"LLM-edited versions (ChatGPT, Groq, Gemini, Claude). "
+            f"Please select the one you find most trustworthy."
         )
     return (
-        f"Asagida LLM'ler (ChatGPT, Groq, Gemini) tarafindan duzenlenen "
-        f"{topic} kodunun dort versiyonu yer almaktadir. "
+        f"Asagida LLM'ler (ChatGPT, Groq, Gemini, Claude) tarafindan duzenlenen "
+        f"{topic} kodunun bes versiyonu yer almaktadir. "
         f"Lutfen size en guvenilir geleni seciniz."
     )
 
@@ -141,12 +144,12 @@ def study_steps(lang: str) -> list[tuple[str, str]]:
     if lang == "en":
         return [
             ("1. Code review", "You will see 5 different Java code snippets and their tasks, one at a time."),
-            ("2. Comparison", "For each snippet, compare the source version with three AI-generated versions."),
+            ("2. Comparison", "For each snippet, compare the source with four AI versions (ChatGPT, Groq, Gemini, Claude)."),
             ("3. Selection", "Choose the version you find most trustworthy in each question."),
         ]
     return [
         ("1. Kod inceleme", "Size 5 farkli Java kodu ve gorevi sirayla aciklanir."),
-        ("2. Karsilastirma", "Her kod icin kaynak hali ile uc yapay zeka versiyonunu gorursunuz."),
+        ("2. Karsilastirma", "Her kod icin kaynak hali ile dort yapay zeka versiyonunu (ChatGPT, Groq, Gemini, Claude) gorursunuz."),
         ("3. Secim", "Her soruda en guvenilir buldugunuz versiyonu secersiniz."),
     ]
 
@@ -244,8 +247,8 @@ def ui_strings(lang: str) -> dict[str, str]:
             "lead": (
                 "In this survey you will see <strong>5 different Java code snippets</strong>. "
                 "For each one, compare the <strong>source version</strong> with "
-                "<strong>ChatGPT</strong>, <strong>Groq</strong>, and <strong>Gemini</strong> "
-                "versions and select the one you find most trustworthy."
+                "<strong>ChatGPT</strong>, <strong>Groq</strong>, <strong>Gemini</strong>, and "
+                "<strong>Claude</strong> versions and select the one you find most trustworthy."
             ),
             "how_it_works": "How it works",
             "already_completed": (
@@ -290,7 +293,7 @@ def ui_strings(lang: str) -> dict[str, str]:
             "chart_source_vs_llm": "Source Code vs LLM",
             "chart_source_vs_llm_sub": "Who trusted the raw source vs AI?",
             "chart_comparison": "Option Comparison",
-            "chart_comparison_sub": "Source Code, Gemini, ChatGPT, and Groq selection counts",
+            "chart_comparison_sub": "Source Code, Gemini, ChatGPT, Groq, and Claude selection counts",
             "chart_source_label": "Source Code",
             "chart_llm_label": "LLM",
             "join_survey": "Take survey",
@@ -311,8 +314,8 @@ def ui_strings(lang: str) -> dict[str, str]:
         "subtitle": "Yapay zeka ile duzenlenmis Java kodlarina guven arastirmasi",
         "lead": (
             "Bu ankette size <strong>5 farkli Java kodu</strong> gosterilir. Her kod icin "
-            "<strong>kaynak hali</strong> ile <strong>ChatGPT</strong>, <strong>Groq</strong> "
-            "ve <strong>Gemini</strong> versiyonlarini karsilastirip en guvenilir buldugunuzu "
+            "<strong>kaynak hali</strong> ile <strong>ChatGPT</strong>, <strong>Groq</strong>, "
+            "<strong>Gemini</strong> ve <strong>Claude</strong> versiyonlarini karsilastirip en guvenilir buldugunuzu "
             "secmeniz istenir."
         ),
         "how_it_works": "Nasil calisir?",
@@ -358,7 +361,7 @@ def ui_strings(lang: str) -> dict[str, str]:
         "chart_source_vs_llm": "Kaynak Kod vs LLM",
         "chart_source_vs_llm_sub": "Kim ham kaynak koda, kim yapay zekaya guvenmis?",
         "chart_comparison": "Secenek Karsilastirmasi",
-        "chart_comparison_sub": "Kaynak Kod, Gemini, ChatGPT ve Groq tercih sayilari",
+        "chart_comparison_sub": "Kaynak Kod, Gemini, ChatGPT, Groq ve Claude tercih sayilari",
         "chart_source_label": "Kaynak Kod",
         "chart_llm_label": "LLM",
         "join_survey": "Ankete katil",

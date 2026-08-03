@@ -85,8 +85,10 @@ class CodeBridge:
 
     def save_results(self, items: list[dict[str, Any]]) -> None:
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
-        with open(self.output_path, "w", encoding="utf-8") as f:
+        tmp_path = f"{self.output_path}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(items, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, self.output_path)
 
     @staticmethod
     def code_for_provider(item: dict[str, Any]) -> str:
