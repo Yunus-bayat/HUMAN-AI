@@ -3,9 +3,13 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.local/
+paper/
 # Anket sonuclari sunucuda uretilir; repoya commit etmeyin
 data/results/*
 !data/results/.gitkeep
 *.log
+refactor_*_log*.txt
+run_pipeline_log.txt
 .DS_Store
 _cat_out.txt
