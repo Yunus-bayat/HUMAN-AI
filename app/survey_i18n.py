@@ -140,16 +140,224 @@ def build_survey_prompt(topic: str, lang: str) -> str:
     )
 
 
+def _provider_label(lang: str, provider: str) -> str:
+    return SOURCE_LABELS.get(normalize_lang(lang), SOURCE_LABELS["tr"]).get(
+        provider, provider
+    )
+
+
+def _llm_fix_note(lang: str, llm_fixed: list[str], llm_preserved: list[str]) -> str:
+    """Explain which LLM refactors likely fixed vs preserved the injected bug."""
+    if not llm_fixed and not llm_preserved:
+        return ""
+
+    lang = normalize_lang(lang)
+    fixed_labels = [_provider_label(lang, p) for p in llm_fixed]
+    preserved_labels = [_provider_label(lang, p) for p in llm_preserved]
+
+    if lang == "en":
+        if llm_fixed and not llm_preserved:
+            joined = ", ".join(fixed_labels)
+            return (
+                f"The LLM refactors ({joined}) likely corrected this bug in the source."
+            )
+        if llm_preserved and not llm_fixed:
+            joined = ", ".join(preserved_labels)
+            return (
+                f"The LLM refactors ({joined}) likely still carried the bug."
+            )
+        fixed_part = ", ".join(fixed_labels)
+        preserved_part = ", ".join(preserved_labels)
+        return (
+            f"LLM refactors likely fixed the bug: {fixed_part}. "
+            f"Likely still buggy: {preserved_part}."
+        )
+
+    if llm_fixed and not llm_preserved:
+        joined = ", ".join(fixed_labels)
+        return (
+            f"LLM refaktorleri ({joined}) hatali kaynaktaki hatayi "
+            f"buyuk olasilikla duzeltmis gorunuyor."
+        )
+    if llm_preserved and not llm_fixed:
+        joined = ", ".join(preserved_labels)
+        return (
+            f"LLM refaktorleri ({joined}) hatayi buyuk olasilikla tasimaya devam etmis."
+        )
+    fixed_part = ", ".join(fixed_labels)
+    preserved_part = ", ".join(preserved_labels)
+    return (
+        f"Hatayi duzeltmis gorunen LLM'ler: {fixed_part}. "
+        f"Hata tasiyor olabilecek LLM'ler: {preserved_part}."
+    )
+
+
+def _choice_status_labels(lang: str) -> dict[str, str]:
+    if lang == "en":
+        return {
+            "fixed": "Error likely fixed",
+            "buggy": "Error likely present",
+            "clean": "No hidden error",
+            "na": "—",
+        }
+    return {
+        "fixed": "Hata giderildi",
+        "buggy": "Hata tasiyor",
+        "clean": "Gizli hata yok",
+        "na": "—",
+    }
+
+
+def _llm_cell_labels(lang: str) -> dict[str, str]:
+    if lang == "en":
+        return {"fixed": "Fixed", "preserved": "Still buggy", "na": "—"}
+    return {"fixed": "Duzeltti", "preserved": "Hata var", "na": "—"}
+
+
+def _build_debrief_table(lang: str, questions: list[dict]) -> dict:
+    lang = normalize_lang(lang)
+    status_labels = _choice_status_labels(lang)
+    llm_labels = _llm_cell_labels(lang)
+    providers = ("chatgpt", "groq", "gemini", "claude")
+
+    if lang == "en":
+        headers = {
+            "question": "Q",
+            "task": "Task",
+            "hidden_bug": "Hidden bug?",
+            "your_choice": "Your choice",
+            "choice_status": "Your selection",
+        }
+    else:
+        headers = {
+            "question": "Soru",
+            "task": "Gorev",
+            "hidden_bug": "Gizli hata?",
+            "your_choice": "Seciminiz",
+            "choice_status": "Seciminizde",
+        }
+
+    provider_headers = {p: _provider_label(lang, p) for p in providers}
+    rows = []
+
+    for q in questions:
+        if q.get("has_injected_bug"):
+            hidden_bug = "Yes" if lang == "en" else "Evet"
+            if q.get("user_fixed") is True:
+                choice_status = status_labels["fixed"]
+                choice_status_key = "fixed"
+            elif q.get("user_fixed") is False:
+                choice_status = status_labels["buggy"]
+                choice_status_key = "buggy"
+            else:
+                choice_status = status_labels["na"]
+                choice_status_key = "na"
+        else:
+            hidden_bug = "No" if lang == "en" else "Hayir"
+            choice_status = status_labels["clean"]
+            choice_status_key = "clean"
+
+        llm_cells = []
+        for provider in providers:
+            fix_state = (q.get("llm_fix") or {}).get(provider, "na")
+            llm_cells.append({
+                "provider": provider,
+                "label": provider_headers[provider],
+                "status": fix_state,
+                "text": llm_labels.get(fix_state, llm_labels["na"]),
+                "selected": q.get("chosen_source") == provider,
+            })
+
+        rows.append({
+            "question_number": q.get("question_number"),
+            "description": q.get("description") or "",
+            "hidden_bug": hidden_bug,
+            "choice_label": q.get("choice_label") or "",
+            "choice_status": choice_status,
+            "choice_status_key": choice_status_key,
+            "llm_cells": llm_cells,
+            "has_injected_bug": bool(q.get("has_injected_bug")),
+        })
+
+    return {
+        "headers": headers,
+        "provider_headers": provider_headers,
+        "rows": rows,
+        "providers": list(providers),
+    }
+
+
+def _build_debrief_chart(lang: str, questions: list[dict]) -> dict | None:
+    buggy = [q for q in questions if q.get("has_injected_bug")]
+    if not buggy:
+        return None
+
+    providers = ("chatgpt", "groq", "gemini", "claude")
+    colors = {
+        "chatgpt": "#10a37f",
+        "groq": "#f97316",
+        "gemini": "#4285f4",
+        "claude": "#d97757",
+    }
+    labels = [
+        (f"Q{q['question_number']}" if lang == "en" else f"Soru {q['question_number']}")
+        for q in buggy
+    ]
+    datasets = []
+    for provider in providers:
+        datasets.append({
+            "provider": provider,
+            "label": _provider_label(lang, provider),
+            "color": colors[provider],
+            "data": [
+                1 if (q.get("llm_fix") or {}).get(provider) == "fixed" else 0
+                for q in buggy
+            ],
+        })
+
+    if lang == "en":
+        title = "Which LLM likely fixed the hidden bug?"
+        y_label = "Fixed (1) / Not fixed (0)"
+        legend_fixed = "1 = likely fixed"
+        legend_bug = "0 = likely still buggy"
+    else:
+        title = "Hangi LLM gizli hatayi duzeltmis olabilir?"
+        y_label = "Duzeltti (1) / Duzeltmedi (0)"
+        legend_fixed = "1 = buyuk olasilikla duzeltti"
+        legend_bug = "0 = buyuk olasilikla hata tasiyor"
+
+    return {
+        "title": title,
+        "y_label": y_label,
+        "legend_fixed": legend_fixed,
+        "legend_bug": legend_bug,
+        "labels": labels,
+        "datasets": datasets,
+    }
+
+
 def debrief_strings(lang: str, summary: dict) -> dict:
     """Personal post-survey debrief for the participant's 5 questions."""
     lang = normalize_lang(lang)
+    empty = {
+        "show": False,
+        "title": "",
+        "intro": "",
+        "footer": "",
+        "items": [],
+        "table": None,
+        "chart": None,
+    }
     if not summary.get("show_debrief"):
-        return {"show": False, "title": "", "intro": "", "items": [], "footer": ""}
+        return empty
 
     total = summary["total_questions"]
     buggy_n = summary["buggy_question_count"]
     picked_n = summary["user_picked_buggy_count"]
-    questions = summary.get("buggy_questions") or []
+    all_questions = summary.get("all_questions") or summary.get("buggy_questions") or []
+
+    table = _build_debrief_table(lang, all_questions)
+    chart = _build_debrief_chart(lang, all_questions)
 
     if lang == "en":
         title = "Your session summary"
@@ -161,75 +369,49 @@ def debrief_strings(lang: str, summary: dict) -> dict:
             footer = ""
         else:
             intro = (
-                f"Among the {total} questions you answered, {buggy_n} contained a "
-                "hidden logic error:"
+                f"Among the {total} questions, {buggy_n} contained a hidden logic error. "
+                "The table shows whether your choice and each LLM refactor likely fixed it."
             )
-            items = []
-            for q in questions:
-                num = q["question_number"]
-                desc = q["description"]
-                label = q["choice_label"]
-                if q["user_picked_buggy"]:
-                    items.append(
-                        f"Question {num} ({desc}): you selected {label} — "
-                        "this version likely still had the error."
-                    )
-                else:
-                    items.append(
-                        f"Question {num} ({desc}): you selected {label} — "
-                        "this version likely did not carry the error."
-                    )
             if picked_n > 0:
                 footer = (
-                    f"You chose a version that likely still had the error in "
-                    f"{picked_n} of these {buggy_n} question(s). "
-                    "Blind trust in AI-generated or unreviewed code can hide subtle bugs — "
-                    "always verify with tests or careful review."
+                    f"In {picked_n} of these {buggy_n} buggy question(s) you selected a version "
+                    "that likely still had the error. Always verify code with tests."
                 )
             else:
                 footer = (
-                    "You did not select a version that likely still had the error. "
-                    "Still, always verify code with tests — looks can be misleading."
+                    "You avoided versions that likely still had the error — "
+                    "still verify with tests; looks can be misleading."
                 )
-            return {"show": True, "title": title, "intro": intro, "items": items, "footer": footer}
-
-        return {"show": True, "title": title, "intro": intro, "items": [], "footer": footer}
-
-    title = "Oturum ozetiniz"
-    if buggy_n == 0:
-        intro = f"Cevapladiginiz {total} sorunun hicbirinde gizli mantik hatasi yoktu."
-        footer = ""
     else:
-        intro = f"Cevapladiginiz {total} sorudan {buggy_n} tanesinde gizli mantik hatasi vardi:"
-        items = []
-        for q in questions:
-            num = q["question_number"]
-            desc = q["description"]
-            label = q["choice_label"]
-            if q["user_picked_buggy"]:
-                items.append(
-                    f"Soru {num} ({desc}): {label} sectiniz — "
-                    "bu versiyonda hata buyuk olasilikla korunmustu."
+        title = "Oturum ozetiniz"
+        if buggy_n == 0:
+            intro = f"Cevapladiginiz {total} sorunun hicbirinde gizli mantik hatasi yoktu."
+            footer = ""
+        else:
+            intro = (
+                f"Cevapladiginiz {total} sorudan {buggy_n} tanesinde gizli mantik hatasi vardi. "
+                "Tablo, seciminizin ve her LLM refaktorunun hatayi gidermis olup olmadigini gosterir."
+            )
+            if picked_n > 0:
+                footer = (
+                    f"Bu {buggy_n} sorudan {picked_n} tanesinde hatayi tasiyan versiyonu sectiniz. "
+                    "Kodu mutlaka test veya dikkatli inceleme ile dogrulayin."
                 )
             else:
-                items.append(
-                    f"Soru {num} ({desc}): {label} sectiniz — "
-                    "bu versiyonda hata buyuk olasilikla tasimiyordu."
+                footer = (
+                    "Hata tasiyan versiyonu secmediniz. Yine de kodu test etmeden "
+                    "yalnizca gorunume guvenmeyin."
                 )
-        if picked_n > 0:
-            footer = (
-                f"Bu {buggy_n} sorudan {picked_n} tanesinde hatayi tasiyan versiyonu sectiniz. "
-                "Yapay zekaya veya incelenmemis koda körü körüne güvenmek tam da bu riski dogurur — "
-                "kodu mutlaka test veya dikkatli inceleme ile dogrulayin."
-            )
-        else:
-            footer = (
-                "Hata tasiyan versiyonu secmediniz. Yine de kodu test etmeden "
-                "yalnizca gorunume guvenmeyin."
-            )
-        return {"show": True, "title": title, "intro": intro, "items": items, "footer": footer}
 
-    return {"show": True, "title": title, "intro": intro, "items": [], "footer": footer}
+    return {
+        "show": True,
+        "title": title,
+        "intro": intro,
+        "footer": footer,
+        "items": [],
+        "table": table,
+        "chart": chart,
+    }
 
 
 def study_steps(lang: str) -> list[tuple[str, str]]:

@@ -427,6 +427,92 @@ ul.clean { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--muted); }
 }
 .debrief-list li { margin-bottom: 0.45rem; line-height: 1.55; }
 .debrief-list li:last-child { margin-bottom: 0; }
+.debrief-table-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+.debrief-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 640px;
+}
+.debrief-table th,
+.debrief-table td {
+  padding: 0.55rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.15);
+  vertical-align: middle;
+}
+.debrief-table th {
+  background: rgba(0, 0, 0, 0.18);
+  color: #fde68a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.debrief-table td.desc {
+  max-width: 11rem;
+  line-height: 1.45;
+  color: #fef9c3;
+}
+.debrief-table tr:last-child td { border-bottom: none; }
+.debrief-status-fixed {
+  color: #86efac;
+  font-weight: 600;
+}
+.debrief-status-buggy {
+  color: #fca5a5;
+  font-weight: 600;
+}
+.debrief-status-clean {
+  color: #bae6fd;
+}
+.debrief-status-na {
+  color: rgba(254, 243, 199, 0.45);
+}
+.debrief-cell-fixed {
+  background: rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
+  font-weight: 600;
+  text-align: center;
+}
+.debrief-cell-buggy {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fecaca;
+  font-weight: 600;
+  text-align: center;
+}
+.debrief-cell-na {
+  color: rgba(254, 243, 199, 0.35);
+  text-align: center;
+}
+.debrief-cell-selected {
+  box-shadow: inset 0 0 0 2px rgba(254, 243, 199, 0.85);
+}
+.debrief-chart-wrap {
+  margin: 1rem 0 0.5rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.18);
+}
+.debrief-chart-wrap h4 {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  color: #fde68a;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+}
+.debrief-chart-canvas { max-height: 240px; }
+.debrief-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: rgba(254, 243, 199, 0.75);
+}
 .study-info {
   margin-bottom: 1rem;
   border: 1px solid rgba(34, 211, 238, 0.2);
@@ -773,17 +859,108 @@ THANKS_HTML = """
       <div class="debrief-panel">
         <h3>{{ debrief.title }}</h3>
         <p>{{ debrief.intro }}</p>
-        {% if debrief['items'] %}
-        <ul class="debrief-list">
-          {% for item in debrief['items'] %}
-            <li>{{ item }}</li>
-          {% endfor %}
-        </ul>
+        {% if debrief.table %}
+        <div class="debrief-table-wrap">
+          <table class="debrief-table">
+            <thead>
+              <tr>
+                <th>{{ debrief.table.headers.question }}</th>
+                <th>{{ debrief.table.headers.task }}</th>
+                <th>{{ debrief.table.headers.hidden_bug }}</th>
+                <th>{{ debrief.table.headers.your_choice }}</th>
+                <th>{{ debrief.table.headers.choice_status }}</th>
+                {% for provider in debrief.table.providers %}
+                <th>{{ debrief.table.provider_headers[provider] }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in debrief.table.rows %}
+              <tr>
+                <td>{{ row.question_number }}</td>
+                <td class="desc">{{ row.description }}</td>
+                <td>{{ row.hidden_bug }}</td>
+                <td><strong>{{ row.choice_label }}</strong></td>
+                <td class="debrief-status-{{ row.choice_status_key }}">{{ row.choice_status }}</td>
+                {% for cell in row.llm_cells %}
+                <td class="debrief-cell-{{ cell.status }}{% if cell.selected %} debrief-cell-selected{% endif %}">
+                  {{ cell.text }}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+        {% if debrief.chart %}
+        <div class="debrief-chart-wrap">
+          <h4>{{ debrief.chart.title }}</h4>
+          <canvas id="debriefChart" class="debrief-chart-canvas"></canvas>
+          <div class="debrief-chart-legend">
+            <span>{{ debrief.chart.legend_fixed }}</span>
+            <span>{{ debrief.chart.legend_bug }}</span>
+          </div>
+        </div>
         {% endif %}
         {% if debrief.footer %}
           <p>{{ debrief.footer }}</p>
         {% endif %}
       </div>
+      {% if debrief.chart %}
+      <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+      <script>
+        (function () {
+          const chartData = {{ debrief_chart_json | safe }};
+          if (!chartData || !window.Chart) return;
+          Chart.defaults.color = "#fef3c7";
+          Chart.defaults.borderColor = "rgba(251, 191, 36, 0.2)";
+          Chart.defaults.font.family = "'DM Sans', 'Segoe UI', sans-serif";
+          new Chart(document.getElementById("debriefChart"), {
+            type: "bar",
+            data: {
+              labels: chartData.labels,
+              datasets: chartData.datasets.map(function (ds) {
+                return {
+                  label: ds.label,
+                  data: ds.data,
+                  backgroundColor: ds.color,
+                  borderRadius: 4,
+                  maxBarThickness: 28,
+                };
+              }),
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  position: "bottom",
+                  labels: { boxWidth: 12, padding: 14 },
+                },
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { font: { weight: "600" } },
+                },
+                y: {
+                  beginAtZero: true,
+                  max: 1,
+                  ticks: { stepSize: 1 },
+                  title: {
+                    display: true,
+                    text: chartData.y_label,
+                    color: "#fde68a",
+                  },
+                  grid: { color: "rgba(251, 191, 36, 0.12)" },
+                },
+              },
+            },
+          });
+        })();
+      </script>
+      {% endif %}
       {% endif %}
       <div class="actions">
         <a class="btn secondary" href="{{ url_for('home') }}">{{ txt.home_link }}</a>
@@ -1270,11 +1447,13 @@ def thanks():
     total = int(session.get("total_questions") or (state or {}).get("total") or QUESTIONS_PER_SESSION)
     lang = current_lang()
     txt = ui_strings(lang)
+    debrief = build_debrief_context(response_id, lang)
     html = render_template_string(
         THANKS_HTML,
         **page_context(
             thanks_body=txt["thanks_body"].format(n=total),
-            debrief=build_debrief_context(response_id, lang),
+            debrief=debrief,
+            debrief_chart_json=json.dumps(debrief.get("chart")) if debrief.get("chart") else "null",
         ),
     )
     response = make_response(html)
