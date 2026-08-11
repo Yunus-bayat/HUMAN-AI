@@ -46,16 +46,15 @@ def cached_storage_operational() -> bool:
     return ok
 from code_categories import (  # noqa: E402
     CATEGORIES,
-    build_four_way_survey_prompt,
     category_for,
 )
 from survey_i18n import (  # noqa: E402
-    CATEGORY_TOPICS_EN,
     DEFAULT_LANG,
     SOURCE_LABELS,
     build_survey_prompt,
     debrief_strings,
     localized_category_label,
+    localized_category_topic,
     localized_description,
     normalize_lang,
     privacy_footer,
@@ -1250,10 +1249,16 @@ def build_four_options(item, lang: str | None = None):
 
 def question_prompt(item: dict, lang: str) -> str:
     cid = item.get("category") or category_for(item["id"])
+    lang = normalize_lang(lang)
     if lang == "en":
-        topic = CATEGORY_TOPICS_EN.get(cid, item.get("category_topic", ""))
-        return build_survey_prompt(topic, "en")
-    return build_four_way_survey_prompt(item)
+        topic = localized_category_topic(
+            cid, item.get("category_topic", ""), "en"
+        )
+    else:
+        topic = localized_category_topic(
+            cid, item.get("category_topic", ""), "tr"
+        )
+    return build_survey_prompt(topic, lang)
 
 
 def build_question_view(item: dict, lang: str | None = None) -> dict:

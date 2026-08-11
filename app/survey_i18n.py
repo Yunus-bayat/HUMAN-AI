@@ -90,6 +90,91 @@ CATEGORY_TOPICS_EN: dict[str, str] = {
     "encoding": "encoding and compression",
 }
 
+CATEGORY_LABELS_TR: dict[str, str] = {
+    "search": "Arama ve Filtreleme",
+    "sort": "Sıralama ve Önceliklendirme",
+    "string": "Metin ve Dize İşlemleri",
+    "data_structures": "Veri Yapıları",
+    "finance": "Finans ve Hesaplama",
+    "validation": "Doğrulama ve Güvenlik",
+    "parsing": "Ayrıştırma ve Veri Yolu",
+    "graph_tree": "Graf ve Ağaç",
+    "scheduling": "Zaman ve İş Akışı",
+    "array_stats": "Dizi ve İstatistik",
+    "business": "İş Mantığı",
+    "encoding": "Kodlama ve Sıkıştırma",
+}
+
+CATEGORY_TOPICS_TR: dict[str, str] = {
+    "search": "arama ve filtreleme",
+    "sort": "sıralama algoritması",
+    "string": "metin işleme",
+    "data_structures": "veri yapısı",
+    "finance": "finans ve hesaplama",
+    "validation": "doğrulama ve güvenlik",
+    "parsing": "ayrıştırma ve veri yolu",
+    "graph_tree": "graf ve ağaç",
+    "scheduling": "zaman ve iş akışı",
+    "array_stats": "dizi ve istatistik",
+    "business": "iş mantığı",
+    "encoding": "kodlama ve sıkıştırma",
+}
+
+CODE_DESCRIPTIONS_TR: dict[str, str] = {
+    "code_01": "Sipariş listesinde müşteri kimliğine göre kayıt arama",
+    "code_02": "Öğrenci notlarını bubble sort ile sıralama",
+    "code_03": "Bilet kodunu normalize edip doğrulama",
+    "code_04": "Basit anahtar-değer önbellek (sabit kapasite)",
+    "code_05": "Fatura satırları için KDV dahil toplam",
+    "code_06": "CSV satırını alanlara ayırma (tırnak destekli basit)",
+    "code_07": "Organizasyon ağacında derinlik hesaplama",
+    "code_08": "Şifre güvenlik kurallarını kontrol etme",
+    "code_09": "İki toplantının çakışıp çakışmadığını kontrol",
+    "code_10": "Metinde anahtar kelime skorlama",
+    "code_11": "Stok artırma/azaltma ve negatif engelleme",
+    "code_12": "Arkadaşlık matrisinde 1 adım ulaşılabilirlik",
+    "code_13": "Taksit tutarını faiz ile hesaplama",
+    "code_14": "Başlıktan URL slug üretme",
+    "code_15": "Sabit boyutlu dairesel tampon",
+    "code_16": "Çalışma dakikalarını saat:dakika formatına çevirme",
+    "code_17": "Basit hareketli ortalama hesabı",
+    "code_18": "İki yol parçasını güvenli birleştirme",
+    "code_19": "Listeden tekrarları silip sırayı koruma",
+    "code_20": "Üssel geri deneme bekleme süresi",
+    "code_21": "Seyrek matriste satır toplamları",
+    "code_22": "Oturum jetonu format kontrolü",
+    "code_23": "Kupon ve yüzde indirimini sırayla uygulama",
+    "code_24": "İki metin satırı listesinde farklı indeksler",
+    "code_25": "Öncelikli iş ekleme (küçük sayı önce)",
+    "code_26": "Noktanın dikdörtgen alan içinde olup olmadığı",
+    "code_27": "Log seviyesine göre satır filtreleme",
+    "code_28": "Boolean bayrakları tek int içinde paketleme",
+    "code_29": "Ham notu harf notuna çevirme",
+    "code_30": "Pencere içinde eşik aşan değer sayısı",
+    "code_31": "Basit etiketleri metinden temizleme",
+    "code_32": "İki çalışanın vardiya kayıtlarını değiştirme",
+    "code_33": "Basit kayan toplam checksum",
+    "code_34": "Diziyi sağa k adım döndürme",
+    "code_35": "Koltuk haritasında boş yer bulma",
+    "code_36": "camelCase ifadeyi snake_case yapmak",
+    "code_37": "Başarı/hata sayısından hata oranı",
+    "code_38": "Ağaç düğüm yolunu birleştirme",
+    "code_39": "IP adresinin izin listesinde olup olmadığı",
+    "code_40": "Basit run-length encode",
+    "code_41": "IBAN numarasını maskeleme",
+    "code_42": "Ardışık isabet kombo skoru",
+    "code_43": "E-posta listesinde domain'e göre filtre",
+    "code_44": "Sıcaklık birimi dönüşümü",
+    "code_45": "İş akışı adımlarının sırayla tamamlanması",
+    "code_46": "Kayıtlarda birden fazla alana göre filtre",
+    "code_47": "LRU listesinde anahtarı öne alma",
+    "code_48": "Günlük değerleri haftalık kovalara toplama",
+    "code_49": "Sayfalama için başlangıç/bitiş indeksi",
+    "code_50": "Bildirim sıklığını sınırlama (throttle)",
+    "code_51": "Sınav puanlarını insertion sort ile artan sıralama",
+    "code_52": "İkili ağaçta yaprak düğüm sayısını sayma",
+}
+
 # LLM product names must stay untranslated ("Gemini" alone becomes zodiac İkizler in TR).
 PROVIDER_BRAND_LABELS = {
     "chatgpt": "ChatGPT",
@@ -119,13 +204,19 @@ def normalize_lang(lang: str | None) -> str:
 def localized_description(item: dict, lang: str) -> str:
     if lang == "en":
         return CODE_DESCRIPTIONS_EN.get(item["id"], item.get("description", "Java code"))
-    return item.get("description", "Java kodu")
+    return CODE_DESCRIPTIONS_TR.get(item["id"], item.get("description", "Java kodu"))
 
 
 def localized_category_label(category_id: str, fallback: str, lang: str) -> str:
     if lang == "en":
         return CATEGORY_LABELS_EN.get(category_id, fallback)
-    return fallback
+    return CATEGORY_LABELS_TR.get(category_id, fallback)
+
+
+def localized_category_topic(category_id: str, fallback: str, lang: str) -> str:
+    if lang == "en":
+        return CATEGORY_TOPICS_EN.get(category_id, fallback)
+    return CATEGORY_TOPICS_TR.get(category_id, fallback)
 
 
 def build_survey_prompt(topic: str, lang: str) -> str:
@@ -136,9 +227,9 @@ def build_survey_prompt(topic: str, lang: str) -> str:
             f"Please select the one you find most trustworthy."
         )
     return (
-        f"Asagida LLM'ler (ChatGPT, Groq, Google Gemini, Claude) tarafindan duzenlenen "
-        f"{topic} kodunun bes versiyonu yer almaktadir. "
-        f"Lutfen size en guvenilir geleni seciniz."
+        f"Aşağıda {topic} kodunun beş versiyonu sunuluyor: kaynak kod ile dört yapay zeka "
+        f"sürümü (ChatGPT, Groq, Google Gemini, Claude). "
+        f"Lütfen en güvenilir bulduğunuzu seçin."
     )
 
 
@@ -178,19 +269,19 @@ def _llm_fix_note(lang: str, llm_fixed: list[str], llm_preserved: list[str]) -> 
     if llm_fixed and not llm_preserved:
         joined = ", ".join(fixed_labels)
         return (
-            f"LLM refaktorleri ({joined}) hatali kaynaktaki hatayi "
-            f"buyuk olasilikla duzeltmis gorunuyor."
+            f"Yapay zeka sürümleri ({joined}) hatalı kaynaktaki hatayı "
+            f"büyük olasılıkla düzeltmiş görünüyor."
         )
     if llm_preserved and not llm_fixed:
         joined = ", ".join(preserved_labels)
         return (
-            f"LLM refaktorleri ({joined}) hatayi buyuk olasilikla tasimaya devam etmis."
+            f"Yapay zeka sürümleri ({joined}) hatayı büyük olasılıkla taşımaya devam etmiş."
         )
     fixed_part = ", ".join(fixed_labels)
     preserved_part = ", ".join(preserved_labels)
     return (
-        f"Hatayi duzeltmis gorunen LLM'ler: {fixed_part}. "
-        f"Hata tasiyor olabilecek LLM'ler: {preserved_part}."
+        f"Hatayı düzeltmiş görünen modeller: {fixed_part}. "
+        f"Hata taşıyor olabilecek modeller: {preserved_part}."
     )
 
 
@@ -203,8 +294,8 @@ def _choice_status_labels(lang: str) -> dict[str, str]:
             "na": "—",
         }
     return {
-        "fixed": "Hata giderildi",
-        "buggy": "Hata tasiyor",
+        "fixed": "Hata giderilmiş",
+        "buggy": "Hata taşıyor",
         "clean": "Gizli hata yok",
         "na": "—",
     }
@@ -213,7 +304,7 @@ def _choice_status_labels(lang: str) -> dict[str, str]:
 def _llm_cell_labels(lang: str) -> dict[str, str]:
     if lang == "en":
         return {"fixed": "Fixed", "preserved": "Still buggy", "na": "—"}
-    return {"fixed": "Duzeltti", "preserved": "Hata var", "na": "—"}
+    return {"fixed": "Düzeltti", "preserved": "Hata var", "na": "—"}
 
 
 def _build_debrief_table(lang: str, questions: list[dict]) -> dict:
@@ -233,10 +324,10 @@ def _build_debrief_table(lang: str, questions: list[dict]) -> dict:
     else:
         headers = {
             "question": "Soru",
-            "task": "Gorev",
+            "task": "Görev",
             "hidden_bug": "Gizli hata?",
-            "your_choice": "Seciminiz",
-            "choice_status": "Seciminizde",
+            "your_choice": "Seçiminiz",
+            "choice_status": "Seçiminiz",
         }
 
     provider_headers = {p: _provider_label(lang, p) for p in providers}
@@ -255,7 +346,7 @@ def _build_debrief_table(lang: str, questions: list[dict]) -> dict:
                 choice_status = status_labels["na"]
                 choice_status_key = "na"
         else:
-            hidden_bug = "No" if lang == "en" else "Hayir"
+            hidden_bug = "No" if lang == "en" else "Hayır"
             choice_status = status_labels["clean"]
             choice_status_key = "clean"
 
@@ -323,10 +414,10 @@ def _build_debrief_chart(lang: str, questions: list[dict]) -> dict | None:
         legend_fixed = "1 = likely fixed"
         legend_bug = "0 = likely still buggy"
     else:
-        title = "Hangi LLM gizli hatayi duzeltmis olabilir?"
-        y_label = "Duzeltti (1) / Duzeltmedi (0)"
-        legend_fixed = "1 = buyuk olasilikla duzeltti"
-        legend_bug = "0 = buyuk olasilikla hata tasiyor"
+        title = "Hangi yapay zeka modeli gizli hatayı düzeltmiş olabilir?"
+        y_label = "Düzeltti (1) / Düzeltmedi (0)"
+        legend_fixed = "1 = büyük olasılıkla düzeltti"
+        legend_bug = "0 = büyük olasılıkla hata taşıyor"
 
     return {
         "title": title,
@@ -385,24 +476,24 @@ def debrief_strings(lang: str, summary: dict) -> dict:
                     "still verify with tests; looks can be misleading."
                 )
     else:
-        title = "Oturum ozetiniz"
+        title = "Oturum özetiniz"
         if buggy_n == 0:
-            intro = f"Cevapladiginiz {total} sorunun hicbirinde gizli mantik hatasi yoktu."
+            intro = f"Cevapladığınız {total} sorunun hiçbirinde gizli mantık hatası yoktu."
             footer = ""
         else:
             intro = (
-                f"Cevapladiginiz {total} sorudan {buggy_n} tanesinde gizli mantik hatasi vardi. "
-                "Tablo, seciminizin ve her LLM refaktorunun hatayi gidermis olup olmadigini gosterir."
+                f"Cevapladığınız {total} sorudan {buggy_n} tanesinde gizli mantık hatası vardı. "
+                "Tablo, seçiminizin ve her yapay zeka sürümünün hatayı gidermiş olup olmadığını gösterir."
             )
             if picked_n > 0:
                 footer = (
-                    f"Bu {buggy_n} sorudan {picked_n} tanesinde hatayi tasiyan versiyonu sectiniz. "
-                    "Kodu mutlaka test veya dikkatli inceleme ile dogrulayin."
+                    f"Bu {buggy_n} sorudan {picked_n} tanesinde hatayı taşıyan sürümü seçtiniz. "
+                    "Kodu mutlaka test veya dikkatli inceleme ile doğrulayın."
                 )
             else:
                 footer = (
-                    "Hata tasiyan versiyonu secmediniz. Yine de kodu test etmeden "
-                    "yalnizca gorunume guvenmeyin."
+                    "Hata taşıyan sürümü seçmediniz. Yine de kodu test etmeden "
+                    "yalnızca görünüme güvenmeyin."
                 )
 
     return {
@@ -424,9 +515,9 @@ def study_steps(lang: str) -> list[tuple[str, str]]:
             ("3. Selection", "Choose the version you find most trustworthy in each question."),
         ]
     return [
-        ("1. Kod inceleme", "Size 5 farkli Java kodu ve gorevi sirayla aciklanir."),
-        ("2. Karsilastirma", "Her kod icin kaynak hali ile dort yapay zeka versiyonunu (ChatGPT, Groq, Google Gemini, Claude) gorursunuz."),
-        ("3. Secim", "Her soruda en guvenilir buldugunuz versiyonu secersiniz."),
+        ("1. Kod inceleme", "Size 5 farklı Java kodu ve görevi sırayla gösterilir."),
+        ("2. Karşılaştırma", "Her kod için kaynak sürüm ile dört yapay zeka sürümünü (ChatGPT, Groq, Google Gemini, Claude) yan yana görürsünüz."),
+        ("3. Seçim", "Her soruda en güvenilir bulduğunuz sürümü seçersiniz."),
     ]
 
 
@@ -439,8 +530,8 @@ def study_notes(lang: str) -> list[str]:
         ]
     return [
         "Ad, e-posta veya kimlik bilgisi istenmez.",
-        "Yalnizca hangi versiyonu sectiginiz anonim olarak kaydedilir.",
-        "Dogru veya yanlis cevap yoktur; genel izleniminiz yeterlidir.",
+        "Yalnızca hangi sürümü seçtiğiniz anonim olarak kaydedilir.",
+        "Doğru veya yanlış cevap yoktur; genel izleniminiz yeterlidir.",
     ]
 
 
@@ -451,8 +542,8 @@ def privacy_footer(lang: str) -> str:
             "and your individual responses are never disclosed."
         )
     return (
-        "Bu anket tamamen anonimdir. Kisisel bilginiz toplanmaz ve bireysel "
-        "yanitlariniz hicbir yerde aciklanmaz."
+        "Bu anket tamamen anonimdir. Kişisel bilginiz toplanmaz ve bireysel "
+        "yanıtlarınız hiçbir yerde açıklanmaz."
     )
 
 
@@ -468,8 +559,8 @@ def wake_script(lang: str) -> str:
         body = "First load may take 30–60 seconds; please wait."
         retry = "Retrying..."
     else:
-        title = "Anket sunucusu uyaniyor"
-        body = "Ilk acilis 30-60 sn surebilir; lutfen bekleyin."
+        title = "Anket sunucusu uyanıyor"
+        body = "İlk açılış 30–60 sn sürebilir; lütfen bekleyin."
         retry = "Yeniden deneniyor..."
     return f"""
 <script>
@@ -584,84 +675,84 @@ def ui_strings(lang: str) -> dict[str, str]:
             "stats_col_option": "Option",
             "stats_col_choices": "Total selections",
             "stats_col_participants": "Participants (≥1 pick)",
-            "lang_tr": "Turkce",
+            "lang_tr": "Türkçe",
             "lang_en": "English",
             "lang_switch": "Language",
         }
     return {
         "html_lang": "tr",
         "home_title": "HUMAN-AI Anketi",
-        "survey_title": "Kod Secimi · HUMAN-AI",
-        "thanks_title": "Tesekkurler · HUMAN-AI",
-        "stats_title": "HUMAN-AI Istatistik",
-        "privacy_banner": "Anonim anket · Kisisel bilgi istenmez · 5 soru · Yaklasik 10 dakika",
-        "privacy_banner_short": "Anonim anket · Kisisel bilgi istenmez",
-        "subtitle": "Yapay zeka ile duzenlenmis Java kodlarina guven arastirmasi",
+        "survey_title": "Kod Seçimi · HUMAN-AI",
+        "thanks_title": "Teşekkürler · HUMAN-AI",
+        "stats_title": "HUMAN-AI İstatistik",
+        "privacy_banner": "Anonim anket · Kişisel bilgi istenmez · 5 soru · Yaklaşık 10 dakika",
+        "privacy_banner_short": "Anonim anket · Kişisel bilgi istenmez",
+        "subtitle": "Yapay zeka ile düzenlenmiş Java kodlarına güven araştırması",
         "lead": (
-            "Bu ankette size <strong>5 farkli Java kodu</strong> gosterilir. Her kod icin "
-            "<strong>kaynak hali</strong> ile <strong>ChatGPT</strong>, <strong>Groq</strong>, "
-            "<strong>Google Gemini</strong> ve <strong>Claude</strong> versiyonlarini karsilastirip en guvenilir buldugunuzu "
-            "secmeniz istenir."
+            "Bu ankette size <strong>5 farklı Java kodu</strong> gösterilir. Her kod için "
+            "<strong>kaynak sürüm</strong> ile <strong>ChatGPT</strong>, <strong>Groq</strong>, "
+            "<strong>Google Gemini</strong> ve <strong>Claude</strong> sürümlerini karşılaştırıp "
+            "en güvenilir bulduğunuzu seçmeniz istenir."
         ),
-        "how_it_works": "Nasil calisir?",
+        "how_it_works": "Nasıl çalışır?",
         "already_completed": (
-            "Bu ankete zaten katildiniz. Her katilimci yalnizca bir kez yanit verebilir; "
-            "tekrar katilim mumkun degildir."
+            "Bu ankete zaten katıldınız. Her katılımcı yalnızca bir kez yanıt verebilir; "
+            "tekrar katılım mümkün değildir."
         ),
         "storage_not_ready": (
-            "Sunucu veya veritabani uyaniyor. Lutfen 30-60 saniye bekleyin; "
+            "Sunucu veya veritabanı uyanıyor. Lütfen 30–60 saniye bekleyin; "
             "sayfa otomatik yenilenecek."
         ),
-        "survey_not_ready": "Anket su an hazir degil. Lutfen daha sonra tekrar deneyin.",
-        "start_survey": "Ankete basla",
-        "view_results": "Sonuclari gor",
-        "cta_note": "{n} soruluk anonim anket · Her katilimci bir kez yanit verebilir.",
+        "survey_not_ready": "Anket şu an hazır değil. Lütfen daha sonra tekrar deneyin.",
+        "start_survey": "Ankete başla",
+        "view_results": "Sonuçları gör",
+        "cta_note": "{n} soruluk anonim anket · Her katılımcı bir kez yanıt verebilir.",
         "step_info": "1. Bilgi",
-        "step_code": "2. Kod secimi",
-        "step_done": "3. Tamamlandi",
+        "step_code": "2. Kod seçimi",
+        "step_done": "3. Tamamlandı",
         "question_word": "Soru",
-        "choose_version": "En guvenilir kod versiyonunu secin",
-        "option_count_hint": "5 versiyon: Kaynak Kod, Google Gemini, ChatGPT, Groq ve Claude — gerekirse asagi kaydirin.",
-        "click_to_select": "Secmek icin tikla",
-        "thanks_heading": "Tesekkurler",
-        "thanks_saved": "Tum yanitlariniz basariyla kaydedildi.",
+        "choose_version": "En güvenilir kod sürümünü seçin",
+        "option_count_hint": "5 sürüm: Kaynak Kod, Google Gemini, ChatGPT, Groq ve Claude — gerekirse aşağı kaydırın.",
+        "click_to_select": "Seçmek için tıklayın",
+        "thanks_heading": "Teşekkürler",
+        "thanks_saved": "Tüm yanıtlarınız başarıyla kaydedildi.",
         "thanks_body": (
-            "{n} sorunun tamamini tamamladiniz. Katkiniz icin tesekkur ederiz. "
-            "Secimleriniz tamamen anonimdir; adiniz veya kisisel bilginiz kaydedilmedi. "
-            "Bu cihazdan tekrar katilim mumkun degildir."
+            "{n} sorunun tamamını tamamladınız. Katkınız için teşekkür ederiz. "
+            "Seçimleriniz tamamen anonimdir; adınız veya kişisel bilginiz kaydedilmedi. "
+            "Bu cihazdan tekrar katılım mümkün değildir."
         ),
         "home_link": "Ana sayfa",
-        "stats_heading": "Anket Sonuclari",
-        "stats_lead": "Katilimcilarin hangi koda daha cok guvendigine dair anonim toplu istatistikler.",
+        "stats_heading": "Anket Sonuçları",
+        "stats_lead": "Katılımcıların hangi koda daha çok güvendiğine dair anonim toplu istatistikler.",
         "stats_anon_note": (
-            "Bu sayfadaki tum veriler anonimdir. Bireysel katilimci kimligi, oturum bilgisi veya "
-            "secilen kod detayi gosterilmez — yalnizca genel tercih dagilimi paylasilir."
+            "Bu sayfadaki tüm veriler anonimdir. Bireysel katılımcı kimliği, oturum bilgisi veya "
+            "seçilen kod detayı gösterilmez — yalnızca genel tercih dağılımı paylaşılır."
         ),
-        "stats_empty_1": "Henuz kayitli anket cevabi yok.",
-        "stats_empty_2": "Ilk katilimci cevap verdikten sonra grafikler burada gorunecek.",
-        "stat_total": "Toplam yanit",
-        "stat_participants": "Anonim katilim",
-        "stat_source": "Kaynak koda guvenen",
-        "stat_llm": "LLM'e guvenen",
-        "stat_winner": "En cok tercih edilen LLM:",
-        "chart_source_vs_llm": "Kaynak Kod vs LLM",
-        "chart_source_vs_llm_sub": "Kim ham kaynak koda, kim yapay zekaya guvenmis?",
-        "chart_comparison": "Secenek Karsilastirmasi",
-        "chart_comparison_sub": "Kaynak Kod, Google Gemini, ChatGPT, Groq ve Claude tercih sayilari",
+        "stats_empty_1": "Henüz kayıtlı anket cevabı yok.",
+        "stats_empty_2": "İlk katılımcı cevap verdikten sonra grafikler burada görünecek.",
+        "stat_total": "Toplam yanıt",
+        "stat_participants": "Anonim katılım",
+        "stat_source": "Kaynak koda güvenen",
+        "stat_llm": "Yapay zekaya güvenen",
+        "stat_winner": "En çok tercih edilen model:",
+        "chart_source_vs_llm": "Kaynak Kod vs Yapay Zeka",
+        "chart_source_vs_llm_sub": "Kim kaynak koda, kim yapay zekaya güvenmiş?",
+        "chart_comparison": "Seçenek Karşılaştırması",
+        "chart_comparison_sub": "Kaynak Kod, Google Gemini, ChatGPT, Groq ve Claude tercih sayıları",
         "chart_source_label": "Kaynak Kod",
-        "chart_llm_label": "LLM",
-        "join_survey": "Ankete katil",
-        "bar_dataset": "Secim sayisi",
-        "bar_tooltip": " secim",
-        "stats_participant_table_title": "Secenek bazinda secim ve katilimci",
+        "chart_llm_label": "Yapay zeka",
+        "join_survey": "Ankete katıl",
+        "bar_dataset": "Seçim sayısı",
+        "bar_tooltip": " seçim",
+        "stats_participant_table_title": "Seçenek bazında seçim ve katılımcı",
         "stats_participant_table_sub": (
-            "Tum sorulardaki toplam secimler ve her secenegi en az bir kez "
-            "isaretleyen benzersiz katilimci sayisi."
+            "Tüm sorulardaki toplam seçimler ve her seçeneği en az bir kez "
+            "işaretleyen benzersiz katılımcı sayısı."
         ),
-        "stats_col_option": "Secenek",
-        "stats_col_choices": "Toplam secim",
-        "stats_col_participants": "Katilimci (en az 1)",
-        "lang_tr": "Turkce",
+        "stats_col_option": "Seçenek",
+        "stats_col_choices": "Toplam seçim",
+        "stats_col_participants": "Katılımcı (en az 1)",
+        "lang_tr": "Türkçe",
         "lang_en": "English",
         "lang_switch": "Dil",
     }

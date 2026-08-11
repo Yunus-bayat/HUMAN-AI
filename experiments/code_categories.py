@@ -7,98 +7,50 @@ CATEGORIES: dict[str, dict[str, str]] = {
     "search": {
         "label": "Arama ve Filtreleme",
         "topic": "arama ve filtreleme",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM (ChatGPT, Groq, Gemini) tarafindan "
-            "refaktorize edilmistir. Size uygun olan arama/filtreleme kodunu seciniz."
-        ),
     },
     "sort": {
-        "label": "Siralama ve Onceliklendirme",
-        "topic": "siralama algoritmasi",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan siralama / onceliklendirme kodunu seciniz."
-        ),
+        "label": "Sıralama ve Önceliklendirme",
+        "topic": "sıralama algoritması",
     },
     "string": {
-        "label": "Metin ve String Islemleri",
-        "topic": "metin isleme",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan metin isleme kodunu seciniz."
-        ),
+        "label": "Metin ve Dize İşlemleri",
+        "topic": "metin işleme",
     },
     "data_structures": {
-        "label": "Veri Yapilari",
-        "topic": "veri yapisi",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan veri yapisi kodunu seciniz."
-        ),
+        "label": "Veri Yapıları",
+        "topic": "veri yapısı",
     },
     "finance": {
         "label": "Finans ve Hesaplama",
         "topic": "finans ve hesaplama",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan finans / hesaplama kodunu seciniz."
-        ),
     },
     "validation": {
-        "label": "Dogrulama ve Guvenlik",
-        "topic": "dogrulama ve guvenlik",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan dogrulama / guvenlik kodunu seciniz."
-        ),
+        "label": "Doğrulama ve Güvenlik",
+        "topic": "doğrulama ve güvenlik",
     },
     "parsing": {
-        "label": "Ayristirma ve Veri Yolu",
-        "topic": "ayristirma ve veri yolu",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan ayristirma / yol birlestirme kodunu seciniz."
-        ),
+        "label": "Ayrıştırma ve Veri Yolu",
+        "topic": "ayrıştırma ve veri yolu",
     },
     "graph_tree": {
-        "label": "Graf ve Agac",
-        "topic": "graf ve agac",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan graf / agac kodunu seciniz."
-        ),
+        "label": "Graf ve Ağaç",
+        "topic": "graf ve ağaç",
     },
     "scheduling": {
-        "label": "Zaman ve Is Akisi",
-        "topic": "zaman ve is akisi",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan zaman / is akisi kodunu seciniz."
-        ),
+        "label": "Zaman ve İş Akışı",
+        "topic": "zaman ve iş akışı",
     },
     "array_stats": {
-        "label": "Dizi ve Istatistik",
+        "label": "Dizi ve İstatistik",
         "topic": "dizi ve istatistik",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan dizi / istatistik kodunu seciniz."
-        ),
     },
     "business": {
-        "label": "Is Mantigi",
-        "topic": "is mantigi",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan is mantigi kodunu seciniz."
-        ),
+        "label": "İş Mantığı",
+        "topic": "iş mantığı",
     },
     "encoding": {
-        "label": "Kodlama ve Sikistirma",
-        "topic": "kodlama ve sikistirma",
-        "survey_prompt": (
-            "Asagidaki kodlar 3 farkli LLM tarafindan refaktorize edilmistir. "
-            "Size uygun olan kodlama / sikistirma kodunu seciniz."
-        ),
+        "label": "Kodlama ve Sıkıştırma",
+        "topic": "kodlama ve sıkıştırma",
     },
 }
 
@@ -167,14 +119,14 @@ def category_for(code_id: str) -> str:
 
 
 def build_four_way_survey_prompt(item: dict) -> str:
-    """Anket ekraninda kod turune gore aciklayici metin uret."""
+    """Backward-compatible alias; prefer survey_i18n.build_survey_prompt."""
     cid = item.get("category") or category_for(item["id"])
     meta = CATEGORIES[cid]
     topic = meta.get("topic", meta["label"].lower())
     return (
-        f"Asagida LLM'ler (ChatGPT, Groq, Gemini, Claude) tarafindan duzenlenen "
-        f"{topic} kodunun bes versiyonu yer almaktadir. "
-        f"Lutfen size en guvenilir geleni seciniz."
+        f"Aşağıda {topic} kodunun beş versiyonu sunuluyor: kaynak kod ile dört yapay zeka "
+        f"sürümü (ChatGPT, Groq, Google Gemini, Claude). "
+        f"Lütfen en güvenilir bulduğunuzu seçin."
     )
 
 
@@ -185,7 +137,7 @@ def attach_category(item: dict) -> dict:
     row = dict(item)
     row["category"] = cid
     row["category_label"] = meta["label"]
-    row["category_prompt"] = meta["survey_prompt"]
+    row["category_prompt"] = meta.get("topic", meta["label"])
     return row
 
 
