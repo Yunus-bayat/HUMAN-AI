@@ -574,6 +574,14 @@ def ui_strings(lang: str) -> dict[str, str]:
             "join_survey": "Take survey",
             "bar_dataset": "Selection count",
             "bar_tooltip": " selections",
+            "stats_participant_table_title": "Choices vs participants by option",
+            "stats_participant_table_sub": (
+                "Total selections across all questions, and how many unique participants "
+                "picked each option at least once."
+            ),
+            "stats_col_option": "Option",
+            "stats_col_choices": "Total selections",
+            "stats_col_participants": "Participants (≥1 pick)",
             "lang_tr": "Turkce",
             "lang_en": "English",
             "lang_switch": "Language",
@@ -643,6 +651,14 @@ def ui_strings(lang: str) -> dict[str, str]:
         "join_survey": "Ankete katil",
         "bar_dataset": "Secim sayisi",
         "bar_tooltip": " secim",
+        "stats_participant_table_title": "Secenek bazinda secim ve katilimci",
+        "stats_participant_table_sub": (
+            "Tum sorulardaki toplam secimler ve her secenegi en az bir kez "
+            "isaretleyen benzersiz katilimci sayisi."
+        ),
+        "stats_col_option": "Secenek",
+        "stats_col_choices": "Toplam secim",
+        "stats_col_participants": "Katilimci (en az 1)",
         "lang_tr": "Turkce",
         "lang_en": "English",
         "lang_switch": "Dil",

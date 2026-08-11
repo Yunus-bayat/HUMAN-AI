@@ -1035,6 +1035,33 @@ STATS_HTML = """
             </div>
           </div>
         </div>
+
+        <div class="chart-card" style="margin-top:1.25rem">
+          <h2>{{ txt.stats_participant_table_title }}</h2>
+          <p class="chart-sub">{{ txt.stats_participant_table_sub }}</p>
+          <div class="debrief-table-wrap">
+            <table class="debrief-table">
+              <thead>
+                <tr>
+                  <th>{{ txt.stats_col_option }}</th>
+                  <th>{{ txt.stats_col_choices }}</th>
+                  <th>{{ txt.stats_col_participants }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for label, count, pct in all_rows %}
+                {% set pcount = participant_rows[loop.index0][1] %}
+                {% set ppct = participant_rows[loop.index0][2] %}
+                <tr>
+                  <td><strong>{{ label }}</strong></td>
+                  <td>{{ count }} ({{ pct }}%)</td>
+                  <td>{{ pcount }} ({{ ppct }}%)</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       {% endif %}
 
       <div class="actions">
@@ -1497,10 +1524,19 @@ def build_stats_context(lang: str | None = None):
     llm_pct = report["llm_trusted_pct"]
 
     all_rows = []
+    participant_rows = []
     for key in OPTION_ORDER:
         count = counts[key]
         pct = round((count / total) * 100, 1) if total else 0.0
         all_rows.append((labels[key], count, pct))
+        pinfo = report["participants_by_source"].get(key, {})
+        participant_rows.append(
+            (
+                labels[key],
+                int(pinfo.get("participants", 0)),
+                float(pinfo.get("participants_pct", 0.0)),
+            )
+        )
 
     winner = None
     if report["most_selected_llm"]:
@@ -1525,6 +1561,7 @@ def build_stats_context(lang: str | None = None):
         "llm_count": llm_count,
         "llm_pct": llm_pct,
         "all_rows": all_rows,
+        "participant_rows": participant_rows,
         "winner": winner,
         "pie_data": pie_data,
         "bar_data": bar_data,

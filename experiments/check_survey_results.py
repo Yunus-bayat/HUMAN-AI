@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 sys.path.insert(0, os.path.dirname(__file__))
-from analyze_results import analyze, load_rows  # noqa: E402
+from analyze_results import ALL_SOURCES, analyze, load_rows  # noqa: E402
 from results_store import (  # noqa: E402
     database_url,
     fetch_recent_choices,
@@ -101,11 +101,18 @@ def main() -> None:
     from collections import Counter
 
     by_source = Counter(r.get("chosen_source") for r in rows)
-    for key in ("original", "gemini", "chatgpt", "groq"):
-        label = SOURCE_LABELS[key]
+    for key in ALL_SOURCES:
+        label = SOURCE_LABELS.get(key, key)
         count = by_source.get(key, 0)
         pct = round((count / report["total_choices"]) * 100, 1) if report["total_choices"] else 0.0
         print(f"  {label}: {count} ({pct}%)")
+
+    print()
+    print_header("Katilimci bazinda (en az bir kez secen)")
+    for key in ALL_SOURCES:
+        label = SOURCE_LABELS.get(key, key)
+        info = report["participants_by_source"][key]
+        print(f"  {label}: {info['participants']} ({info['participants_pct']}%)")
 
     recent = fetch_recent_choices(limit=8)
     if recent:

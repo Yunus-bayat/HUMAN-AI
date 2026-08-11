@@ -19,16 +19,40 @@ sys.path.insert(0, os.path.dirname(__file__))
 from results_store import load_rows
 
 LLM_NAMES = ("chatgpt", "groq", "gemini", "claude")
+ALL_SOURCES = ("original", *LLM_NAMES)
+
+
+def _participant_ids(rows) -> set[str]:
+    return {
+        str(r.get("response_id") or r.get("participant_id"))
+        for r in rows
+        if r.get("response_id") or r.get("participant_id")
+    }
+
+
+def participants_by_source(rows) -> dict[str, dict[str, float | int]]:
+    """Unique participants who selected each option at least once."""
+    ids_by_source = {name: set() for name in ALL_SOURCES}
+    for row in rows:
+        participant_id = row.get("response_id") or row.get("participant_id")
+        source = row.get("chosen_source")
+        if participant_id and source in ids_by_source:
+            ids_by_source[source].add(str(participant_id))
+
+    participant_total = len(_participant_ids(rows))
+    result: dict[str, dict[str, float | int]] = {}
+    for name in ALL_SOURCES:
+        count = len(ids_by_source[name])
+        pct = round((count / participant_total) * 100, 1) if participant_total else 0.0
+        result[name] = {"participants": count, "participants_pct": pct}
+    return result
 
 
 def analyze(rows):
     total = len(rows)
     by_source = Counter(r.get("chosen_source") for r in rows)
-    participants = {
-        r.get("response_id") or r.get("participant_id")
-        for r in rows
-        if r.get("response_id") or r.get("participant_id")
-    }
+    participants = _participant_ids(rows)
+    by_participant_source = participants_by_source(rows)
 
     source_count = by_source.get("original", 0)
     llm_count = sum(by_source.get(name, 0) for name in LLM_NAMES)
@@ -54,6 +78,7 @@ def analyze(rows):
         "buggy_set_total": len(buggy),
         "buggy_set_source": buggy_source,
         "buggy_set_llm": buggy_llm,
+        "participants_by_source": by_participant_source,
     }
 
 
@@ -80,6 +105,11 @@ def main() -> None:
         pct = round((count / report["total_choices"]) * 100, 1) if report["total_choices"] else 0.0
         print(f"  {name}: {count} ({pct}%)")
     print(f"En cok secilen LLM: {report['most_selected_llm'] or '-'}")
+    print()
+    print("En az bir kez secen katilimci (secenek basina)")
+    for name in ALL_SOURCES:
+        info = report["participants_by_source"][name]
+        print(f"  {name}: {info['participants']} ({info['participants_pct']}%)")
     print()
     print("Hata enjekte edilmis kodlar")
     print(f"  Toplam: {report['buggy_set_total']}")
