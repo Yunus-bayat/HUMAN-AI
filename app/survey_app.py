@@ -689,6 +689,9 @@ FONT_LINK = (
     "family=Space+Grotesk:wght@500;600;700&display=swap"
 )
 
+# Prevent browser auto-translate from turning "Gemini" into zodiac İkizler (TR).
+NO_TRANSLATE_META = '<meta name="google" content="notranslate" />'
+
 LANG_SWITCHER = """
 <div class="lang-bar">
   <span>{{ txt.lang_switch }}:</span>
@@ -699,9 +702,10 @@ LANG_SWITCHER = """
 
 HOME_HTML = """
 <!doctype html>
-<html lang="{{ txt.html_lang }}">
+<html lang="{{ txt.html_lang }}" translate="no">
 <head>
   <meta charset="utf-8" />
+  {{ no_translate_meta | safe }}
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ txt.home_title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -767,9 +771,10 @@ HOME_HTML = """
 
 SURVEY_HTML = """
 <!doctype html>
-<html lang="{{ txt.html_lang }}">
+<html lang="{{ txt.html_lang }}" translate="no">
 <head>
   <meta charset="utf-8" />
+  {{ no_translate_meta | safe }}
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ txt.survey_title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -813,7 +818,7 @@ SURVEY_HTML = """
           <label class="option-card">
             <input type="radio" name="choice" value="{{ option.key }}" required />
             <div class="option-head">
-              <span class="badge {{ option.badge }}">{{ option.label }}</span>
+              <span class="badge {{ option.badge }} notranslate" translate="no">{{ option.label }}</span>
               <span class="pick-hint">{{ txt.click_to_select }}</span>
             </div>
             <pre>{{ option.code }}</pre>
@@ -834,9 +839,10 @@ SURVEY_HTML = """
 
 THANKS_HTML = """
 <!doctype html>
-<html lang="{{ txt.html_lang }}">
+<html lang="{{ txt.html_lang }}" translate="no">
 <head>
   <meta charset="utf-8" />
+  {{ no_translate_meta | safe }}
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ txt.thanks_title }}</title>
   <link href="{{ font_link }}" rel="stylesheet">
@@ -974,9 +980,10 @@ THANKS_HTML = """
 
 STATS_HTML = """
 <!doctype html>
-<html lang="{{ txt.html_lang }}">
+<html lang="{{ txt.html_lang }}" translate="no">
 <head>
   <meta charset="utf-8" />
+  {{ no_translate_meta | safe }}
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ txt.stats_title }}</title>
   <link href="{{ font_link }}" rel="stylesheet">
@@ -1286,6 +1293,7 @@ def page_context(**extra):
         "txt": txt,
         "css": BASE_CSS,
         "font_link": FONT_LINK,
+        "no_translate_meta": NO_TRANSLATE_META,
         "lang_switcher": render_template_string(LANG_SWITCHER, lang=lang, txt=txt),
         "privacy_footer_text": privacy_footer(lang),
         "wake_script": wake_script(lang),

@@ -27,7 +27,7 @@ from results_store import (  # noqa: E402
 
 SOURCE_LABELS = {
     "original": "Kaynak Kod",
-    "gemini": "Gemini",
+    "gemini": "Google Gemini",
     "chatgpt": "ChatGPT",
     "groq": "Groq",
     "claude": "Claude",
